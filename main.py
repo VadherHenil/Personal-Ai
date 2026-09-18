@@ -65,8 +65,33 @@ from memory.config_manager     import (
     get_voice_language,
     get_voice_name,
     load_personalization,
+    load_settings,
 )
-from tool_registry import TOOL_DECLARATIONS as TOOL_REGISTRY_DECLARATIONS
+from memory.chat_store import (
+    append_message as append_chat_message,
+    ensure_session as ensure_chat_session,
+    get_session as get_chat_session,
+    update_session as update_chat_session,
+)
+from memory.action_store import record_action
+from memory.user_memory import (
+    format_memories_for_prompt,
+    reflect_on_turn,
+    list_memories,
+    upsert_memory,
+    delete_memory,
+)
+from tool_registry import TOOL_DECLARATIONS as TOOL_REGISTRY_DECLARATIONS, get_enabled_tool_declarations
+from security.controls import (
+    inspect_user_text,
+    sanitize_model_output,
+    validate_tool_call,
+    validate_runtime_tool_call,
+)
+from core.task_planner import create_plan
+from core.logging_utils import configure_logging, install_crash_handler
+from core.tool_queue import ToolExecutionQueue
+from memory.routines import create_routine, list_routines, mark_due
 
 
 def get_base_dir():
@@ -117,6 +142,15 @@ def _build_personalization_context(config: dict) -> str:
         ("Custom instructions", "custom_instructions"),
     )
     details = []
+    skill_profiles = {
+        "coding": "Prioritize precise implementation details, tests, debugging, and secure code changes.",
+        "research": "Prefer sourced, structured, uncertainty-aware answers and distinguish facts from hypotheses.",
+        "household": "Favor practical routines, reminders, shopping, weather, and safe home-task guidance.",
+        "productivity": "Favor actionable priorities, short plans, deadlines, and clear next steps.",
+    }
+    skill_profile = str(config.get("skill_profile") or "general").lower()
+    if skill_profile in skill_profiles:
+        details.append(f"Active skill profile ({skill_profile}): {skill_profiles[skill_profile]}")
     for label, key in fields:
         value = config.get(key, "")
         if isinstance(value, str) and value.strip():
@@ -202,6 +236,11 @@ class FridayLive:
         self._pending_startup_greeting: str | None = None
         self._greeting_state: str = "idle"  # one of: idle, queued, sent
         self._session_raw_log: list[str] = []
+        self._chat_user_id = "local-user"
+        self._chat_session_id = ensure_chat_session(self._chat_user_id)
+        self._offline_mode = False
+        self._tool_queue = ToolExecutionQueue(workers=2, maxsize=32)
+        self._logger = configure_logging()
 
     def _on_personalization_changed(self, settings: dict) -> None:
         """Apply visible identity updates immediately and notify paired devices."""
@@ -219,6 +258,23 @@ class FridayLive:
             except RuntimeError:
                 pass
 
+    def _persist_chat_message(self, role: str, content: str) -> None:
+        try:
+            append_chat_message(self._chat_session_id, self._chat_user_id, role, content)
+        except PermissionError:
+            self._chat_session_id = ensure_chat_session(self._chat_user_id)
+            append_chat_message(self._chat_session_id, self._chat_user_id, role, content)
+
+    def _schedule_memory_reflection(self, user_text: str) -> None:
+        if not user_text.strip():
+            return
+        asyncio.create_task(asyncio.to_thread(
+            reflect_on_turn,
+            self._chat_user_id,
+            user_text,
+            self._chat_session_id,
+        ))
+
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
         if self._dashboard is None:
@@ -233,16 +289,64 @@ class FridayLive:
         return url, key, f"{url}/auto-login?key={key}", manual
 
     def _on_text_command(self, text: str):
-        if not self._loop or not self.session:
+        if not self._loop:
+            return
+        if self._offline_mode or not self.session:
+            asyncio.run_coroutine_threadsafe(self._handle_offline_text(text), self._loop)
             return
         asyncio.run_coroutine_threadsafe(
             self._send_pending_and_user(text),
             self._loop
         )
 
-    async def _send_pending_and_user(self, text: str) -> None:
+    async def _handle_offline_text(self, text: str) -> None:
+        """Handle safe, useful commands when the online provider is unavailable."""
+        try:
+            text, _ = inspect_user_text(text)
+        except ValueError as exc:
+            self.ui.write_log(f"SECURITY: {exc}")
+            return
+        lowered = text.lower()
+        self._persist_chat_message("user", text)
+        if any(word in lowered for word in ("system status", "cpu", "memory usage", "ram", "performance")):
+            status = get_system_status()
+            reply = "Offline system status:\n" + "\n".join(f"- {key}: {value}" for key, value in status.items())
+        elif any(word in lowered for word in ("remember", "memory", "what do you know")):
+            profile = load_memory()
+            reply = "Offline memory lookup:\n" + json.dumps(profile, indent=2, ensure_ascii=False)[:3500]
+        elif lowered in {"help", "offline help", "what can you do"}:
+            reply = "Offline mode supports system status, memory lookup, and local conversation history. Online mode is required for web search and computer actions."
+        else:
+            reply = "I am in offline mode. I can check system status, inspect saved memory, and keep local chat history."
+        self._persist_chat_message("assistant", reply)
+        self.ui.show_content("OFFLINE MODE", reply)
+        self.ui.write_log("SYS: Offline response generated locally.")
+
+    async def _restore_chat_context(self, session_id: str) -> None:
+        """Restore recent turns into the live model before continuing a session."""
+        if not self.session or session_id == self._chat_session_id:
+            return
+        session = get_chat_session(session_id, self._chat_user_id, include_messages=True)
+        if not session:
+            return
+        turns = []
+        for message in session.get("messages", [])[-40:]:
+            role = "model" if message.get("role") == "assistant" else "user"
+            turns.append({"role": role, "parts": [{"text": str(message.get("content", ""))}]})
+        if turns:
+            await self.session.send_client_content(turns=turns, turn_complete=False)
+        self._chat_session_id = session_id
+
+    async def _send_pending_and_user(
+        self, text: str, session_id: str | None = None, persist_user: bool = True
+    ) -> None:
         """Send any queued startup greeting first, then the user's text input."""
         try:
+            try:
+                text, _ = inspect_user_text(text)
+            except ValueError as exc:
+                self.ui.write_log(f"SECURITY: {exc}")
+                return
             if self._pending_startup_greeting and self.session:
                 try:
                     await self.session.send_client_content(
@@ -274,6 +378,8 @@ class FridayLive:
             # Now send the user's text. Log it locally so transcripts include both sides.
             # Debounce duplicate rapid inputs (some UI events send twice).
             if self.session:
+                if session_id:
+                    await self._restore_chat_context(session_id)
                 now_t = time.time()
                 last_txt = getattr(self, '_last_sent_user_text', None)
                 last_t = getattr(self, '_last_sent_user_time', 0)
@@ -291,6 +397,12 @@ class FridayLive:
                     # record typed user input into session logs
                     # UI already logs the text; avoid duplicating UI log here
                     self._session_log.append(f"User: {text}")
+                    if persist_user:
+                        self._persist_chat_message("user", text)
+                        self._schedule_memory_reflection(text)
+                    current_chat = get_chat_session(self._chat_session_id, self._chat_user_id, include_messages=False)
+                    if current_chat and current_chat.get("title") == "New conversation":
+                        update_chat_session(self._chat_session_id, self._chat_user_id, title=text[:80])
                     if hasattr(self, '_session_raw_log'):
                         self._session_raw_log.append(f"User: {text}")
                 except Exception:
@@ -326,6 +438,7 @@ class FridayLive:
                         # append assistant reply to session logs
                         try:
                             self._session_log.append(f"{self._asst_name}: {reply}")
+                            self._persist_chat_message("assistant", sanitize_model_output(reply))
                             if hasattr(self, '_session_raw_log'):
                                 self._session_raw_log.append(f"{self._asst_name}: {reply}")
                         except Exception:
@@ -392,6 +505,7 @@ class FridayLive:
 
     def _build_config(self, voice_name: str | None = None) -> types.LiveConnectConfig:
         from datetime import datetime
+        _settings = load_settings()
 
         # Load customization from config
         try:
@@ -405,6 +519,7 @@ class FridayLive:
 
         memory     = load_memory() if _cfg.get("memory_enabled", True) else {}
         mem_str    = format_memory_for_prompt(memory)
+        profile_mem_str = format_memories_for_prompt(self._chat_user_id)
         sys_prompt = _load_system_prompt()
         personalization_ctx = _build_personalization_context(_cfg)
 
@@ -471,6 +586,8 @@ class FridayLive:
         parts = [time_ctx, sys_prompt]
         if mem_str:
             parts.append(mem_str)
+        if profile_mem_str:
+            parts.append(profile_mem_str)
         parts.append(identity_ctx)
         if personalization_ctx:
             parts.append(personalization_ctx)
@@ -497,7 +614,7 @@ class FridayLive:
             output_audio_transcription={},
             input_audio_transcription={},
             system_instruction="\n".join(parts + [voice_guidance]),
-            tools=[{"function_declarations": TOOL_DECLARATIONS}],
+            tools=[{"function_declarations": get_enabled_tool_declarations(_settings.enabled_plugins)}],
             session_resumption=types.SessionResumptionConfig(),
             speech_config=speech_config,
         )
@@ -514,10 +631,29 @@ class FridayLive:
         return types.SpeechConfig()
 
     async def _execute_tool(self, fc) -> types.FunctionResponse:
+        return await self._tool_queue.submit(self._execute_tool_now, fc)
+
+    async def _execute_tool_now(self, fc) -> types.FunctionResponse:
         name = fc.name
         args = dict(fc.args or {})
 
-        print(f"[FRIDAY] 🔧 {name}  {args}")
+        try:
+            _settings = load_settings()
+            validate_runtime_tool_call(
+                name,
+                args,
+                TOOL_DECLARATIONS,
+                enabled_plugins=_settings.enabled_plugins,
+                permissions=_settings.permissions,
+            )
+        except (PermissionError, ValueError) as exc:
+            self.ui.write_log(f"SECURITY: Tool {name} blocked: {exc}")
+            return types.FunctionResponse(
+                id=fc.id, name=name,
+                response={"error": "Tool call rejected by security policy."},
+            )
+
+        print(f"[FRIDAY] Tool requested: {name}")
         self.ui.set_state("THINKING")
 
         if name == "save_memory":
@@ -538,7 +674,46 @@ class FridayLive:
         result = "Done."
 
         try:
-            if name == "open_app":
+            if name == "plan_task":
+                plan = create_plan(args.get("request", ""))
+                result = json.dumps(plan, ensure_ascii=False)
+                self.ui.show_content("TASK PLAN", result)
+
+            elif name == "memory_control":
+                action = str(args.get("action", "list")).lower()
+                if action in {"remember", "edit"}:
+                    item = upsert_memory(
+                        self._chat_user_id,
+                        str(args.get("category") or "NOTES").upper(),
+                        str(args.get("fact") or ""),
+                        float(args.get("confidence", 0.7) or 0.7),
+                        self._chat_session_id,
+                        str(args.get("memory_id") or "") or None,
+                        expires_in_days=args.get("expires_in_days"),
+                    )
+                    result = json.dumps(item, ensure_ascii=False)
+                elif action == "forget":
+                    result = "Memory forgotten." if delete_memory(self._chat_user_id, str(args.get("memory_id") or "")) else "Memory not found."
+                else:
+                    result = json.dumps(list_memories(self._chat_user_id), ensure_ascii=False)
+                self.ui.show_content("MEMORY CONTROL", result)
+
+            elif name == "manage_routine":
+                action = str(args.get("action", "list")).lower()
+                if action == "create":
+                    routine = create_routine(
+                        self._chat_user_id,
+                        str(args.get("name") or "Friday routine"),
+                        str(args.get("kind") or "custom"),
+                        str(args.get("schedule") or "08:00"),
+                        args.get("payload") if isinstance(args.get("payload"), dict) else {},
+                    )
+                    result = json.dumps(routine, ensure_ascii=False)
+                else:
+                    result = json.dumps(list_routines(self._chat_user_id), ensure_ascii=False)
+                self.ui.show_content("PROACTIVE ROUTINES", result)
+
+            elif name == "open_app":
                 r = await loop.run_in_executor(None, lambda: open_app(parameters=args, response=None, player=self.ui))
                 result = r or f"Opened {args.get('app_name')}."
 
@@ -745,13 +920,27 @@ class FridayLive:
 
         except Exception as e:
             result = f"Tool '{name}' failed: {e}"
-            traceback.print_exc()
+            self._logger.exception("Tool execution failed: %s", name)
             self.speak_error(name, e)
+
+        source_labels = {
+            "web_search": "Web search",
+            "weather_report": "Weather service",
+            "file_controller": "Local file system",
+            "file_processor": "Local file processor",
+            "system_status": "Local system monitor",
+        }
+        if name in source_labels and result and not str(result).startswith("["):
+            result = f"[Source: {source_labels[name]}]\n{result}"
 
         if not self.ui.muted:
             self.ui.set_state("LISTENING")
 
         print(f"[FRIDAY] 📤 {name} → {str(result)[:80]}")
+        try:
+            record_action(self._chat_user_id, name, args, str(result), undoable=False)
+        except Exception as action_error:
+            print(f"[FRIDAY] Action history unavailable: {action_error}")
         return types.FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
@@ -795,7 +984,9 @@ class FridayLive:
                 self.ui.set_microphone_status("off")
                 await asyncio.sleep(0.2)
             try:
-                input_dev = sd.query_devices(kind="input")
+                _voice_cfg = load_personalization()
+                _input_device = _voice_cfg.get("audio_input_device") or None
+                input_dev = sd.query_devices(device=_input_device, kind="input") if _input_device else sd.query_devices(kind="input")
                 max_input_channels = input_dev.get("max_input_channels", 0)
                 if max_input_channels < 1:
                     raise RuntimeError("No input audio device available.")
@@ -809,6 +1000,7 @@ class FridayLive:
                     channels=actual_channels,
                     dtype="int16",
                     blocksize=CHUNK_SIZE,
+                    device=_input_device,
                     callback=callback,
                 ):
                     print("[FRIDAY] 🎤 Mic stream open")
@@ -887,32 +1079,41 @@ class FridayLive:
                             full_in = " ".join(in_buf).strip()
                             full_in_raw = " ".join(in_buf_raw).strip()
                             if full_in:
-                                self.ui.write_log(f"You: {full_in}")
-                                self._session_log.append(f"User: {full_in}")
+                                safe_in = sanitize_model_output(full_in)
+                                self.ui.write_log(f"You: {safe_in}")
+                                self._session_log.append(f"User: {safe_in}")
+                                self._persist_chat_message("user", safe_in)
+                                self._schedule_memory_reflection(safe_in)
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "user",
-                                        "text": full_in,
+                                        "text": safe_in,
                                         "ts": datetime.now().isoformat(),
                                     }))
                             if full_in_raw:
-                                self._session_raw_log.append(f"User: {full_in_raw}")
+                                self._session_raw_log.append(
+                                    f"User: {sanitize_model_output(full_in_raw)}"
+                                )
                             in_buf = []
                             in_buf_raw = []
 
                             full_out = " ".join(out_buf).strip()
                             full_out_raw = " ".join(out_buf_raw).strip()
                             if full_out:
-                                self.ui.write_log(f"{self._asst_name}: {full_out}")
-                                self._session_log.append(f"{self._asst_name}: {full_out}")
+                                safe_out = sanitize_model_output(full_out)
+                                self.ui.write_log(f"{self._asst_name}: {safe_out}")
+                                self._session_log.append(f"{self._asst_name}: {safe_out}")
+                                self._persist_chat_message("assistant", safe_out)
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "friday",
-                                        "text": full_out,
+                                        "text": safe_out,
                                         "ts": datetime.now().isoformat(),
                                     }))
                             if full_out_raw:
-                                self._session_raw_log.append(f"{self._asst_name}: {full_out_raw}")
+                                self._session_raw_log.append(
+                                    f"{self._asst_name}: {sanitize_model_output(full_out_raw)}"
+                                )
                             out_buf = []
                             out_buf_raw = []
 
@@ -967,8 +1168,10 @@ class FridayLive:
         try:
             _playback_cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8"))
             _output_volume = float(_playback_cfg.get("voice_volume", 1.0) or 1.0)
+            _output_device = _playback_cfg.get("audio_output_device") or None
         except Exception:
             _output_volume = 1.0
+            _output_device = None
         _output_volume = max(0.0, min(1.0, _output_volume))
 
         stream = sd.RawOutputStream(
@@ -976,6 +1179,7 @@ class FridayLive:
             channels=CHANNELS,
             dtype="int16",
             blocksize=CHUNK_SIZE,
+            device=_output_device,
         )
         stream.start()
 
@@ -1245,6 +1449,21 @@ class FridayLive:
             if speaking:
                 continue
 
+            try:
+                due_routines = await asyncio.to_thread(mark_due, self._chat_user_id)
+                for routine in due_routines:
+                    routine_prompt = (
+                        f"[SCHEDULED ROUTINE] Run the user's {routine['kind']} routine named "
+                        f"'{routine['name']}'. Settings: {json.dumps(routine['payload'], ensure_ascii=False)}. "
+                        "Respond with a concise useful update and use tools only when necessary."
+                    )
+                    await self.session.send_client_content(
+                        turns={"parts": [{"text": routine_prompt}]}, turn_complete=True
+                    )
+                    self.ui.write_log(f"SYS: Routine executed — {routine['name']}")
+            except Exception as routine_error:
+                print(f"[Routine] ⚠️ {routine_error}")
+
             if not self._proactive.should_trigger(self._last_user_speech):
                 continue
 
@@ -1297,9 +1516,11 @@ class FridayLive:
     async def _process_dashboard_commands(self) -> None:
         while True:
             try:
-                text = await asyncio.wait_for(
+                command = await asyncio.wait_for(
                     self._dashboard._command_queue.get(), timeout=0.5
                 )
+                session_id = command.get("session_id") if isinstance(command, dict) else None
+                text = command.get("text") if isinstance(command, dict) else command
                 if not text:
                     continue
                 # Wait up to 8s for session to become ready after a wake
@@ -1308,8 +1529,14 @@ class FridayLive:
                         break
                     await asyncio.sleep(0.1)
                 if self.session:
-                    await self._send_pending_and_user(text)
+                    await self._send_pending_and_user(
+                        text, session_id=session_id,
+                        persist_user=not isinstance(command, dict) or not command.get("regenerate"),
+                    )
                     self.ui.write_log(f"[Web]: {text}")
+                elif self._offline_mode:
+                    await self._handle_offline_text(text)
+                    self.ui.write_log(f"[Web/offline]: {text}")
                 else:
                     print(f"[Dashboard] Dropped command (no session): {text}")
             except asyncio.TimeoutError:
@@ -1322,6 +1549,10 @@ class FridayLive:
 
     async def run(self):
         self._loop = asyncio.get_event_loop()
+        settings = load_settings()
+        self._offline_mode = settings.provider_mode == "offline" or (
+            settings.provider_mode == "auto" and not get_gemini_key()
+        )
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:
@@ -1334,6 +1565,12 @@ class FridayLive:
         except Exception as e:
             print(f"[Dashboard] Disabled: {e}")
             self._dashboard = None
+
+        if self._offline_mode:
+            self.ui.set_state("LISTENING")
+            self.ui.write_log("SYS: Offline mode active. Local commands are available.")
+            await asyncio.Event().wait()
+            return
 
         current_voice_name = get_voice_name()
         while True:
@@ -1524,6 +1761,7 @@ class FridayLive:
             await asyncio.sleep(delay)
 
 def main():
+    install_crash_handler(configure_logging())
     ui = FridayUI("face.png")
 
     def runner():

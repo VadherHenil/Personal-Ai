@@ -19,6 +19,32 @@ import string
 import time
 from pathlib import Path
 
+from security.controls import SlidingWindowLimiter, inspect_user_text
+from memory.chat_store import (
+    branch_session,
+    create_session,
+    delete_session,
+    fork_session,
+    get_session,
+    group_sessions_by_timeframe,
+    list_sessions,
+    search_conversations,
+    prepare_regeneration,
+    update_message,
+    update_session,
+)
+from memory.config_manager import load_personalization, update_config, validate_settings
+from tool_registry import get_plugin_catalog
+from memory.user_memory import (
+    delete_memory,
+    list_memories,
+    upsert_memory,
+)
+from memory.action_store import list_actions, mark_undone
+from memory.routines import create_routine, list_routines
+from actions.system_monitor import get_system_status
+from actions.background_monitor import list_monitors
+
 _DEPS_OK = False
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
@@ -376,7 +402,9 @@ class DashboardServer:
         self._wake_callback               = None
         self._connect_callback            = None
         self._pending_keys: dict[str, float] = {}
+        self._pending_approvals: dict[str, dict] = {}
         self._device_sessions: dict[str, dict] = {}  # device_token → {session_key}
+        self._command_limiter = SlidingWindowLimiter(limit=30, window_seconds=600)
         self._phone_audio_queue: asyncio.Queue    = asyncio.Queue(maxsize=200)
         self._uploads_dir                 = UPLOADS_DIR
         self._login_html                  = _read("login.html")
@@ -406,6 +434,10 @@ class DashboardServer:
         if self._ssl_enabled():
             return f"{self._ip}:{PORT + 1}"
         return f"{self._ip}:{PORT}"
+
+    def get_pairing_payload(self, expiry_secs: int = 600) -> dict:
+        key = self.new_key(expiry_secs)
+        return {"url": self.get_url(), "key": key, "pairing_url": f"{self.get_url()}/auto-login?key={key}", "expires_in": expiry_secs}
 
     def _aes_key(self, session_key: str) -> bytes:
         if session_key not in self._aes_cache:
@@ -448,9 +480,28 @@ class DashboardServer:
     def _build_app(self) -> "FastAPI":
         app = FastAPI(docs_url=None, redoc_url=None)
 
+        @app.middleware("http")
+        async def security_headers(req: Request, call_next):
+            response = await call_next(req)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; connect-src 'self' ws: wss:; "
+                "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data:; frame-ancestors 'none'"
+            )
+            return response
+
         def _auth(req: Request) -> bool:
             tok = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
             return bool(tok) and tok in self._tokens
+
+        def _user_id(_req: Request) -> str:
+            # This application is a single-user desktop assistant; all authenticated
+            # dashboard devices address the same local profile.
+            return "local-user"
 
         # serve CryptoJS from local cache, fallback to CDN redirect
         @app.get("/static/crypto.js")
@@ -532,7 +583,7 @@ class DashboardServer:
                 {"type": "sys", "text": "Remote connection established via QR code."}
             ))
 
-            return HTMLResponse(f"""<!DOCTYPE html>
+            response = HTMLResponse(f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width">
 <style>
   body{{background:#07090f;color:#dde3ed;font-family:sans-serif;
@@ -543,11 +594,15 @@ class DashboardServer:
 <script>
     sessionStorage.setItem('friday_token','{tok}');
     sessionStorage.setItem('friday_key','{key}');
-    localStorage.setItem('friday_device_token','{dev_tok}');
   setTimeout(function(){{location.replace('/')}},400);
 </script>
 <p>Connecting to Friday…</p>
 </body></html>""")
+            response.set_cookie(
+                "friday_device_token", dev_tok, max_age=30 * 24 * 3600,
+                httponly=True, secure=self._ssl_enabled(), samesite="strict",
+            )
+            return response
 
         @app.post("/api/device-login")
         async def device_login_ep(req: Request):
@@ -555,8 +610,8 @@ class DashboardServer:
             try:
                 body = await req.json()
             except Exception:
-                return JSONResponse({"ok": False}, status_code=400)
-            dev_tok = (body.get("device_token") or "").strip()
+                body = {}
+            dev_tok = (body.get("device_token") or req.cookies.get("friday_device_token") or "").strip()
             if not dev_tok or dev_tok not in self._device_sessions:
                 return JSONResponse({"ok": False}, status_code=401)
             session_key = self._device_sessions[dev_tok]["session_key"]
@@ -584,8 +639,10 @@ class DashboardServer:
         async def command(req: Request):
             if not _auth(req):
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
-            body  = await req.json()
             token = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
+            if not self._command_limiter.allow(token):
+                return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
+            body  = await req.json()
             enc   = body.get("enc", "")
             if enc:
                 text = self._decrypt(token, enc)
@@ -594,10 +651,288 @@ class DashboardServer:
             else:
                 text = (body.get("text") or "").strip()
             if text:
+                risky = any(word in text.lower() for word in ("delete", "shutdown", "restart", "send message", "write file", "install"))
+                if risky and not bool(body.get("approved")):
+                    approval_id = secrets.token_urlsafe(18)
+                    self._pending_approvals[approval_id] = {"text": text, "created": time.time(), "token": token}
+                    return JSONResponse({"ok": False, "approval_required": True, "approval_id": approval_id}, status_code=202)
                 await self._command_queue.put(text)
                 if self._wake_callback:
                     self._wake_callback()
             return JSONResponse({"ok": True})
+
+        @app.get("/api/metrics")
+        async def metrics(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            try:
+                status = get_system_status()
+            except Exception as exc:
+                status = {"error": str(exc)}
+            try:
+                monitors = list_monitors()
+            except Exception:
+                monitors = []
+            return JSONResponse({"metrics": status, "active_monitors": monitors, "timestamp": time.time()})
+
+        @app.get("/api/actions")
+        async def actions(req: Request, limit: int = 100):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return JSONResponse({"actions": list_actions(_user_id(req), limit)})
+
+        @app.post("/api/actions/{action_id}/undo")
+        async def undo_action(req: Request, action_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            changed = mark_undone(action_id, _user_id(req))
+            return JSONResponse({"ok": changed, "message": "Action marked undone." if changed else "This action is not undoable."}, status_code=200 if changed else 409)
+
+        @app.post("/api/approvals/{approval_id}")
+        async def approval(req: Request, approval_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            pending = self._pending_approvals.pop(approval_id, None)
+            if not pending or pending.get("token") != req.headers.get("authorization", "").removeprefix("Bearer ").strip():
+                return JSONResponse({"error": "Approval expired or invalid"}, status_code=404)
+            body = await req.json()
+            if not bool(body.get("approved")):
+                return JSONResponse({"ok": True, "status": "rejected"})
+            await self._command_queue.put(pending["text"])
+            if self._wake_callback:
+                self._wake_callback()
+            return JSONResponse({"ok": True, "status": "approved"})
+
+        @app.get("/api/pairing")
+        async def pairing(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return JSONResponse(self.get_pairing_payload())
+
+        @app.post("/api/ai/chat")
+        async def ai_chat(req: Request):
+            """Authenticated, bounded text ingress for the server-side AI session."""
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            token = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
+            if not self._command_limiter.allow(token):
+                return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
+            try:
+                body = await req.json()
+                text, _ = inspect_user_text(str(body.get("message", "")))
+            except (ValueError, TypeError):
+                return JSONResponse({"error": "Message rejected by security policy"}, status_code=400)
+            if not text:
+                return JSONResponse({"error": "Message is required"}, status_code=400)
+            await self._command_queue.put({"text": text, "session_id": body.get("session_id")})
+            if self._wake_callback:
+                self._wake_callback()
+            return JSONResponse({"ok": True})
+
+        @app.get("/api/sessions")
+        async def sessions(req: Request, query: str = ""):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            items = list_sessions(_user_id(req), query=query)
+            return JSONResponse({"sessions": items, "groups": group_sessions_by_timeframe(items)})
+
+        @app.get("/api/search")
+        async def search(req: Request, query: str = "", category: str = "", role: str = "", date_from: str = "", date_to: str = ""):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            results = search_conversations(
+                _user_id(req), query, category=category, role=role,
+                date_from=date_from, date_to=date_to,
+            )
+            return JSONResponse({"results": results})
+
+        @app.get("/api/settings")
+        async def settings(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            profile = load_personalization()
+            profile.pop("gemini_api_key", None)
+            return JSONResponse({"settings": profile})
+
+        @app.patch("/api/settings")
+        async def update_settings_ep(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            allowed = {key: value for key, value in body.items() if key != "gemini_api_key"}
+            settings = validate_settings(allowed)
+            saved = update_config(settings)
+            saved.pop("gemini_api_key", None)
+            return JSONResponse({"settings": saved})
+
+        @app.get("/api/plugins")
+        async def plugins(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            profile = load_personalization()
+            enabled = profile.get("enabled_plugins", {})
+            catalog = get_plugin_catalog()
+            for item in catalog:
+                item["enabled"] = bool(enabled.get(item["name"], True))
+            return JSONResponse({"plugins": catalog})
+
+        @app.get("/api/permissions")
+        async def permissions(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return JSONResponse({"permissions": load_personalization().get("permissions", {})})
+
+        @app.post("/api/sessions")
+        async def create_session_ep(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            session_id = create_session(
+                _user_id(req),
+                title=str(body.get("title") or "New conversation"),
+                category=str(body.get("category") or "general"),
+            )
+            return JSONResponse({"session": get_session(session_id, _user_id(req))}, status_code=201)
+
+        @app.get("/api/sessions/{session_id}")
+        async def session_detail(req: Request, session_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            item = get_session(session_id, _user_id(req), include_messages=True)
+            return JSONResponse(item or {"error": "Not found"}, status_code=200 if item else 404)
+
+        @app.patch("/api/sessions/{session_id}")
+        async def update_session_ep(req: Request, session_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            changed = update_session(
+                session_id,
+                _user_id(req),
+                title=body.get("title"),
+                pinned=body.get("pinned"),
+                category=body.get("category"),
+                summary=body.get("summary"),
+            )
+            item = get_session(session_id, _user_id(req), include_messages=False)
+            return JSONResponse(item or {"error": "Not found"}, status_code=200 if changed else 404)
+
+        @app.delete("/api/sessions/{session_id}")
+        async def delete_session_ep(req: Request, session_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            deleted = delete_session(session_id, _user_id(req))
+            return JSONResponse({"ok": deleted}, status_code=200 if deleted else 404)
+
+        @app.post("/api/sessions/{session_id}/branch")
+        async def branch_session_ep(req: Request, session_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            try:
+                branch_id = branch_session(session_id, str(body.get("message_id") or ""), _user_id(req))
+            except (PermissionError, ValueError) as exc:
+                return JSONResponse({"error": str(exc)}, status_code=400)
+            return JSONResponse({"session": get_session(branch_id, _user_id(req))}, status_code=201)
+
+        @app.post("/api/sessions/{session_id}/fork")
+        async def fork_session_ep(req: Request, session_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            try:
+                fork_id = fork_session(session_id, _user_id(req))
+            except PermissionError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=404)
+            return JSONResponse({"session": get_session(fork_id, _user_id(req))}, status_code=201)
+
+        @app.patch("/api/messages/{message_id}")
+        async def update_message_ep(req: Request, message_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            changed = update_message(message_id, _user_id(req), str(body.get("content") or ""))
+            return JSONResponse({"ok": changed}, status_code=200 if changed else 404)
+
+        @app.post("/api/messages/{message_id}/regenerate")
+        async def regenerate_message_ep(req: Request, message_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            prepared = prepare_regeneration(message_id, _user_id(req))
+            if not prepared:
+                return JSONResponse({"error": "Assistant message not found"}, status_code=404)
+            session_id, text = prepared
+            await self._command_queue.put({"text": text, "session_id": session_id, "regenerate": True})
+            if self._wake_callback:
+                self._wake_callback()
+            return JSONResponse({"ok": True, "session_id": session_id})
+
+        @app.get("/api/memories")
+        async def memories(req: Request, category: str | None = None):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return JSONResponse({"memories": list_memories(_user_id(req), category)})
+
+        @app.post("/api/memories")
+        async def create_memory(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            try:
+                item = upsert_memory(
+                    _user_id(req),
+                    str(body.get("category") or "USER_PREFERENCES"),
+                    str(body.get("fact") or ""),
+                    float(body.get("confidence", 0.8)),
+                    body.get("source_session_id"),
+                    expires_in_days=body.get("expires_in_days"),
+                )
+            except (TypeError, ValueError):
+                return JSONResponse({"error": "Invalid memory"}, status_code=400)
+            return JSONResponse({"memory": item}, status_code=201)
+
+        @app.patch("/api/memories/{memory_id}")
+        async def update_memory_ep(req: Request, memory_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            try:
+                item = upsert_memory(
+                    _user_id(req),
+                    str(body.get("category") or "USER_PREFERENCES"),
+                    str(body.get("fact") or ""),
+                    float(body.get("confidence", 0.8)),
+                    body.get("source_session_id"),
+                    memory_id=memory_id,
+                    expires_in_days=body.get("expires_in_days"),
+                )
+            except (TypeError, ValueError):
+                return JSONResponse({"error": "Invalid memory"}, status_code=400)
+            return JSONResponse({"memory": item})
+
+        @app.delete("/api/memories/{memory_id}")
+        async def delete_memory_ep(req: Request, memory_id: str):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            deleted = delete_memory(_user_id(req), memory_id)
+            return JSONResponse({"ok": deleted}, status_code=200 if deleted else 404)
+
+        @app.get("/api/routines")
+        async def routines(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return JSONResponse({"routines": list_routines(_user_id(req))})
+
+        @app.post("/api/routines")
+        async def create_routine_ep(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            routine = create_routine(
+                _user_id(req), str(body.get("name") or "Friday routine"),
+                str(body.get("kind") or "custom"), str(body.get("schedule") or "08:00"),
+                body.get("payload") if isinstance(body.get("payload"), dict) else {},
+            )
+            return JSONResponse({"routine": routine}, status_code=201)
 
         @app.post("/api/wake")
         async def wake_ep(req: Request):

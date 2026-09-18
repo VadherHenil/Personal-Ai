@@ -4,10 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mark-l"
-version = "1.0.0"
+version = "1.1.0"
 description = "A voice-driven personal AI assistant with desktop control, memory, and browser integration"
-readme = "readme.md"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "CC-BY-NC-4.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Personal AI" }]
+keywords = ["ai", "assistant", "desktop", "voice", "automation"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: End Users/Desktop",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Communications :: Chat",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
   "PyQt6",
   "sounddevice",
@@ -35,6 +48,27 @@ dependencies = [
 dashboard = ["fastapi", "uvicorn[standard]", "cryptography", "python-multipart"]
 browser = ["playwright"]
 windows = ["comtypes; sys_platform == 'win32'", "pycaw; sys_platform == 'win32'", "win10toast; sys_platform == 'win32'", "pywinauto; sys_platform == 'win32'", "pywin32; sys_platform == 'win32'"]
+build = ["pyinstaller>=6.0", "build"]
+
+[project.scripts]
+mark-l = "main:main"
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main", "tool_registry", "ui", "version"]
+packages = [
+  "actions",
+  "config",
+  "core",
+  "dashboard",
+  "memory",
+  "security",
+]
+
+[tool.setuptools.package-data]
+config = ["*.json", "certs/*"]
+core = ["*.txt"]
+dashboard = ["static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

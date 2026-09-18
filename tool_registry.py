@@ -398,4 +398,65 @@ TOOL_DECLARATIONS = [
             "required": []
         }
     },
+    {
+        "name": "plan_task",
+        "description": "Break a complex request into visible sequential steps and report the plan before execution.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {"request": {"type": "STRING", "description": "Complex task to plan"}},
+            "required": ["request"],
+        },
+    },
+    {
+        "name": "manage_routine",
+        "description": "Create, list, or schedule proactive briefings, reminders, weather updates, system alerts, and custom routines.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "create | list"},
+                "name": {"type": "STRING", "description": "Routine name"},
+                "kind": {"type": "STRING", "description": "briefing | reminder | weather | system_alert | custom"},
+                "schedule": {"type": "STRING", "description": "Daily 24-hour time, e.g. 08:30"},
+                "payload": {"type": "OBJECT", "description": "Routine-specific settings"},
+            },
+            "required": ["action"],
+        },
+    },
+    {
+        "name": "memory_control",
+        "description": "Manage user memory. Use for explicit remember, forget, edit, or list requests; never store secrets.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "remember | forget | edit | list"},
+                "memory_id": {"type": "STRING", "description": "Memory ID for edit or forget"},
+                "category": {"type": "STRING", "description": "Memory category"},
+                "fact": {"type": "STRING", "description": "Fact to save or edit"},
+                "confidence": {"type": "NUMBER", "description": "Confidence from 0 to 1"},
+                "expires_in_days": {"type": "INTEGER", "description": "Optional expiry period"},
+            },
+            "required": ["action"],
+        },
+    },
 ]
+
+
+def get_enabled_tool_declarations(enabled_plugins: dict | None = None) -> list[dict]:
+    """Return model tools enabled in the user's unified settings profile."""
+    enabled_plugins = enabled_plugins or {}
+    return [
+        declaration for declaration in TOOL_DECLARATIONS
+        if bool(enabled_plugins.get(declaration.get("name", ""), True))
+    ]
+
+
+def get_plugin_catalog() -> list[dict]:
+    """Return safe metadata for a future plugin marketplace/settings view."""
+    return [
+        {
+            "name": declaration.get("name", ""),
+            "description": declaration.get("description", ""),
+            "installed": True,
+        }
+        for declaration in TOOL_DECLARATIONS
+    ]

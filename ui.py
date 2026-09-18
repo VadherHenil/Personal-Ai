@@ -119,9 +119,33 @@ _THEMES: dict[str, dict[str, str]] = {
     "Cyberpunk": {
         "BG": "#10051a", "PANEL": "#180927", "PANEL2": "#240d36", "BORDER": "#5b1f70", "BORDER_B": "#a332b5", "BORDER_A": "#742783", "PRI": "#00f5d4", "PRI_DIM": "#18a893", "PRI_GHO": "#083b39", "ACC": "#ff4da6", "ACC2": "#ffe66d", "GREEN": "#a7ff4f", "GREEN_D": "#67ad31", "RED": "#ff477e", "MUTED_C": "#ff477e", "TEXT": "#d9fff8", "TEXT_DIM": "#8cb8b3", "TEXT_MED": "#a7ddd5", "WHITE": "#ffffff", "DARK": "#12051d", "BAR_BG": "#220c33",
     },
+    "Ultron": {
+        "BG": "#030201", "PANEL": "#0d0803", "PANEL2": "#160c03", "BORDER": "#5a2d08", "BORDER_B": "#a85a12", "BORDER_A": "#7a3d0a", "PRI": "#ffaa30", "PRI_DIM": "#9b5515", "PRI_GHO": "#321704", "ACC": "#ff6f1a", "ACC2": "#ffcc66", "GREEN": "#ffd35a", "GREEN_D": "#a87824", "RED": "#ff5533", "MUTED_C": "#ff7043", "TEXT": "#ffd98a", "TEXT_DIM": "#9c7040", "TEXT_MED": "#c49755", "WHITE": "#fff0bd", "DARK": "#080402", "BAR_BG": "#1d0e03",
+    },
 }
 
-DEFAULT_UI_THEME = "Dark"
+# The native app also exposes the five visual identities from friday-ui.
+# Their palettes reuse the native color contract so every existing widget can
+# retheme without requiring a second stylesheet system.
+_FRIDAY_THEME_PALETTES = {
+    "Stark HUD": {"BG": "#060913", "PANEL": "#0b1220", "PANEL2": "#111c2e", "BORDER": "#164e63", "BORDER_B": "#00f0ff", "BORDER_A": "#16728a", "PRI": "#00f0ff", "PRI_DIM": "#168ca3", "PRI_GHO": "#082b3b", "ACC": "#ff9900", "ACC2": "#ffd166", "GREEN": "#52ffb8", "GREEN_D": "#24966d", "RED": "#ff5470", "MUTED_C": "#ff5470", "TEXT": "#d0f4ff", "TEXT_DIM": "#6d9aaa", "TEXT_MED": "#a3d3df", "WHITE": "#f5fdff", "DARK": "#050811", "BAR_BG": "#0d1a2b"},
+    "Broadsheet Gazette": {"BG": "#faf6ed", "PANEL": "#fffdf7", "PANEL2": "#f1eadc", "BORDER": "#b7aa94", "BORDER_B": "#111111", "BORDER_A": "#8c7d68", "PRI": "#111111", "PRI_DIM": "#675d50", "PRI_GHO": "#e9dfcf", "ACC": "#c2410c", "ACC2": "#8b5e34", "GREEN": "#3f6b4f", "GREEN_D": "#31543e", "RED": "#a52f2f", "MUTED_C": "#8f3e3e", "TEXT": "#1c1917", "TEXT_DIM": "#756b5e", "TEXT_MED": "#50483e", "WHITE": "#171411", "DARK": "#eee5d6", "BAR_BG": "#e1d5c2"},
+    "RetroOS 95": {"BG": "#008080", "PANEL": "#c0c0c0", "PANEL2": "#d8d8d8", "BORDER": "#808080", "BORDER_B": "#ffffff", "BORDER_A": "#000000", "PRI": "#000080", "PRI_DIM": "#004040", "PRI_GHO": "#a0a0a0", "ACC": "#800080", "ACC2": "#ffff00", "GREEN": "#008000", "GREEN_D": "#006000", "RED": "#800000", "MUTED_C": "#800000", "TEXT": "#000000", "TEXT_DIM": "#404040", "TEXT_MED": "#202020", "WHITE": "#ffffff", "DARK": "#000040", "BAR_BG": "#a0a0a0"},
+    "Nordic Zen": {"BG": "#f7f7f3", "PANEL": "#ffffff", "PANEL2": "#eef0eb", "BORDER": "#d3d8cf", "BORDER_B": "#94a18e", "BORDER_A": "#b7c0b1", "PRI": "#334155", "PRI_DIM": "#64748b", "PRI_GHO": "#e3e8df", "ACC": "#4d7c0f", "ACC2": "#a16207", "GREEN": "#4d7c0f", "GREEN_D": "#52733a", "RED": "#a64b4b", "MUTED_C": "#a64b4b", "TEXT": "#1f2937", "TEXT_DIM": "#728073", "TEXT_MED": "#4b5563", "WHITE": "#17202a", "DARK": "#e9ece5", "BAR_BG": "#dce2d8"},
+    "Neon Arcade 1984": {"BG": "#0d0221", "PANEL": "#170637", "PANEL2": "#25094f", "BORDER": "#63218e", "BORDER_B": "#ff007f", "BORDER_A": "#9e2dbe", "PRI": "#ff007f", "PRI_DIM": "#b82d79", "PRI_GHO": "#3d0d55", "ACC": "#00f2fe", "ACC2": "#ffe66d", "GREEN": "#70ffca", "GREEN_D": "#329b7b", "RED": "#ff477e", "MUTED_C": "#ff477e", "TEXT": "#fdf4ff", "TEXT_DIM": "#ad75bd", "TEXT_MED": "#ddaee8", "WHITE": "#ffffff", "DARK": "#0b011b", "BAR_BG": "#20084a"},
+    "Astra CryoLab": {"BG": "#050c09", "PANEL": "#07130e", "PANEL2": "#0a1e15", "BORDER": "#164e3b", "BORDER_B": "#10b981", "BORDER_A": "#087f63", "PRI": "#10b981", "PRI_DIM": "#168c70", "PRI_GHO": "#092d22", "ACC": "#06b6d4", "ACC2": "#67e8f9", "GREEN": "#a3e635", "GREEN_D": "#4d8f2a", "RED": "#fb7185", "MUTED_C": "#fb7185", "TEXT": "#ecfdf5", "TEXT_DIM": "#6ee7b7", "TEXT_MED": "#a7f3d0", "WHITE": "#f0fdf4", "DARK": "#040e09", "BAR_BG": "#0b2117"},
+    "Swiss Bauhaus Studio": {"BG": "#f4f4f5", "PANEL": "#ffffff", "PANEL2": "#e4e4e7", "BORDER": "#18181b", "BORDER_B": "#dc2626", "BORDER_A": "#52525b", "PRI": "#dc2626", "PRI_DIM": "#991b1b", "PRI_GHO": "#fee2e2", "ACC": "#facc15", "ACC2": "#fef08a", "GREEN": "#166534", "GREEN_D": "#15803d", "RED": "#b91c1c", "MUTED_C": "#991b1b", "TEXT": "#18181b", "TEXT_DIM": "#71717a", "TEXT_MED": "#52525b", "WHITE": "#18181b", "DARK": "#e4e4e7", "BAR_BG": "#d4d4d8"},
+    "Arcane Grimoire": {"BG": "#1a110a", "PANEL": "#f5ecd8", "PANEL2": "#ebe0c7", "BORDER": "#855829", "BORDER_B": "#d4af37", "BORDER_A": "#a47b3e", "PRI": "#d4af37", "PRI_DIM": "#a47b3e", "PRI_GHO": "#4a2c16", "ACC": "#991b1b", "ACC2": "#fbbf24", "GREEN": "#52734a", "GREEN_D": "#3f5f38", "RED": "#991b1b", "MUTED_C": "#b91c1c", "TEXT": "#3e2c1e", "TEXT_DIM": "#78532f", "TEXT_MED": "#633a18", "WHITE": "#45260f", "DARK": "#160c05", "BAR_BG": "#d6be96"},
+    "Apollo 11 Flight Deck": {"BG": "#12161c", "PANEL": "#171c23", "PANEL2": "#1e2632", "BORDER": "#374151", "BORDER_B": "#f59e0b", "BORDER_A": "#b45309", "PRI": "#f59e0b", "PRI_DIM": "#b7791f", "PRI_GHO": "#3b2910", "ACC": "#38bdf8", "ACC2": "#7dd3fc", "GREEN": "#22c55e", "GREEN_D": "#15803d", "RED": "#ef4444", "MUTED_C": "#f87171", "TEXT": "#f3f4f6", "TEXT_DIM": "#9ca3af", "TEXT_MED": "#cbd5e1", "WHITE": "#ffffff", "DARK": "#0f1318", "BAR_BG": "#1f2937"},
+    "Neo Shibuya Manga": {"BG": "#0c0818", "PANEL": "#140b29", "PANEL2": "#25104d", "BORDER": "#000000", "BORDER_B": "#f72585", "BORDER_A": "#4cc9f0", "PRI": "#f72585", "PRI_DIM": "#b51763", "PRI_GHO": "#3b1455", "ACC": "#4cc9f0", "ACC2": "#fee440", "GREEN": "#70e000", "GREEN_D": "#38a300", "RED": "#ef233c", "MUTED_C": "#ef233c", "TEXT": "#f8fafc", "TEXT_DIM": "#94a3b8", "TEXT_MED": "#cbd5e1", "WHITE": "#fdf4ff", "DARK": "#0d071a", "BAR_BG": "#1f0e42"},
+}
+_THEMES.update(_FRIDAY_THEME_PALETTES)
+
+_DESIGN_MODES = ("orb", "default", "radar", "reactor", "matrix", "constellation")
+DEFAULT_DESIGN_MODE = "orb"
+
+DEFAULT_UI_THEME = "Ultron"
+_ACTIVE_UI_THEME = DEFAULT_UI_THEME
 
 DEFAULT_UI_COLOR = _PALETTE_DEFAULTS["PRI"]
 
@@ -171,9 +195,11 @@ def current_palette() -> dict[str, str]:
 
 def apply_ui_theme(theme_name: str) -> str:
     """Apply a named complete UI palette and return the resolved theme name."""
+    global _ACTIVE_UI_THEME
     resolved = theme_name if theme_name in _THEMES else DEFAULT_UI_THEME
     for key, value in _THEMES[resolved].items():
         setattr(C, key, value)
+    _ACTIVE_UI_THEME = resolved
     return resolved
 
 
@@ -378,7 +404,7 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 class HudCanvas(QWidget):
-    def __init__(self, face_path: str, assistant_name: str = "Friday", parent=None):
+    def __init__(self, face_path: str, assistant_name: str = "Friday", design_mode: str = DEFAULT_DESIGN_MODE, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setMinimumSize(300, 300)
@@ -388,6 +414,7 @@ class HudCanvas(QWidget):
         self.speaking = False
         self.state    = "INITIALISING"
         self._assistant_name = assistant_name
+        self._design_mode = design_mode if design_mode in _DESIGN_MODES else DEFAULT_DESIGN_MODE
 
         self._tick       = 0
         self._scale      = 1.0
@@ -408,6 +435,10 @@ class HudCanvas(QWidget):
         self._tmr = QTimer(self)
         self._tmr.timeout.connect(self._step)
         self._tmr.start(16)
+
+    def set_design_mode(self, design_mode: str):
+        self._design_mode = design_mode if design_mode in _DESIGN_MODES else DEFAULT_DESIGN_MODE
+        self.update()
 
     def _load_face(self, path: str):
         try:
@@ -479,6 +510,152 @@ class HudCanvas(QWidget):
             self._blink_tick = 0
         self.update()
 
+    def _paint_ultron_orb(self, p: QPainter, cx: float, cy: float, fw: float):
+        radius = fw * 0.235 * self._scale
+        glow = QRadialGradient(QPointF(cx, cy), radius * 1.8)
+        glow.setColorAt(0.0, qcol(C.WHITE, 235))
+        glow.setColorAt(0.16, qcol(C.ACC2, 220))
+        glow.setColorAt(0.42, qcol(C.ACC, 120))
+        glow.setColorAt(0.72, qcol(C.PRI, 36))
+        glow.setColorAt(1.0, qcol(C.PRI, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(glow))
+        p.drawEllipse(QRectF(cx - radius * 1.8, cy - radius * 1.8, radius * 3.6, radius * 3.6))
+
+        core = QRadialGradient(QPointF(cx - radius * 0.2, cy - radius * 0.2), radius)
+        core.setColorAt(0.0, qcol(C.WHITE, 255))
+        core.setColorAt(0.3, qcol(C.ACC2, 245))
+        core.setColorAt(0.78, qcol(C.ACC, 190))
+        core.setColorAt(1.0, qcol(C.DARK, 210))
+        p.setBrush(QBrush(core))
+        p.drawEllipse(QRectF(cx - radius, cy - radius, radius * 2, radius * 2))
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for width, height, alpha in (
+            (2.0, 0.42, 190), (1.45, 0.72, 155), (0.72, 1.0, 135),
+        ):
+            p.setPen(QPen(qcol(C.ACC2, alpha), width))
+            p.drawEllipse(QRectF(cx - radius * height, cy - radius * 0.34, radius * height * 2, radius * 0.68))
+            p.drawEllipse(QRectF(cx - radius * 0.34, cy - radius * height, radius * 0.68, radius * height * 2))
+
+        p.setPen(QPen(qcol(C.ACC2, 90), 1))
+        for offset in range(-6, 7):
+            y = cy + offset * radius * 0.115
+            half = radius * math.sqrt(max(0.0, 1.0 - (offset / 8.0) ** 2))
+            p.drawLine(QPointF(cx - half, y), QPointF(cx + half, y))
+
+        p.setPen(QPen(qcol(C.ACC2, 220), 2))
+        p.drawArc(QRectF(cx - radius * 1.18, cy - radius * 1.18, radius * 2.36, radius * 2.36), int(self._rings[0] * 16), 125 * 16)
+        p.setPen(QPen(qcol(C.ACC, 170), 1.4))
+        p.drawArc(QRectF(cx - radius * 1.32, cy - radius * 1.32, radius * 2.64, radius * 2.64), int(self._rings[1] * 16), 80 * 16)
+
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(qcol(C.WHITE, 255)))
+        p.drawEllipse(QRectF(cx - radius * 0.12, cy - radius * 0.12, radius * 0.24, radius * 0.24))
+
+    def _paint_default_design(self, p: QPainter, cx: float, cy: float, fw: float):
+        radius = fw * 0.24
+        p.setPen(QPen(qcol(C.PRI, 210), 2))
+        p.setBrush(QBrush(qcol(C.PANEL2, 230)))
+        p.drawEllipse(QRectF(cx - radius, cy - radius, radius * 2, radius * 2))
+        if self._face_px and not self._face_px.isNull():
+            face = self._face_px.scaled(int(radius * 1.72), int(radius * 1.72), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            p.drawPixmap(int(cx - face.width() / 2), int(cy - face.height() / 2), face)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(qcol(C.PRI, 130), 1.5))
+        p.drawEllipse(QRectF(cx - radius * 1.18, cy - radius * 1.18, radius * 2.36, radius * 2.36))
+        p.setPen(QPen(qcol(C.ACC, 180), 2))
+        p.drawArc(QRectF(cx - radius * 1.32, cy - radius * 1.32, radius * 2.64, radius * 2.64), int(self._rings[0] * 16), 100 * 16)
+
+    def _paint_radar_design(self, p: QPainter, cx: float, cy: float, fw: float):
+        radius = fw * 0.36
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for fraction in (0.42, 0.70, 1.0):
+            p.setPen(QPen(qcol(C.PRI, 105), 1))
+            r = radius * fraction
+            p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
+        p.setPen(QPen(qcol(C.PRI, 95), 1))
+        p.drawLine(QPointF(cx - radius, cy), QPointF(cx + radius, cy))
+        p.drawLine(QPointF(cx, cy - radius), QPointF(cx, cy + radius))
+        sweep = math.radians(self._scan)
+        p.setPen(QPen(qcol(C.ACC, 220), 2))
+        p.drawLine(QPointF(cx, cy), QPointF(cx + math.cos(sweep) * radius, cy - math.sin(sweep) * radius))
+        for index in range(7):
+            angle = math.radians(index * 51 + 18)
+            distance = radius * (0.35 + (index % 3) * 0.19)
+            x = cx + math.cos(angle) * distance
+            y = cy - math.sin(angle) * distance
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(qcol(C.GREEN if index % 2 else C.ACC2, 220)))
+            p.drawEllipse(QPointF(x, y), 3.5 if index % 3 == 0 else 2, 3.5 if index % 3 == 0 else 2)
+        p.setPen(QPen(qcol(C.PRI, 180), 1))
+        p.drawText(QRectF(cx - radius, cy + radius + 10, radius * 2, 20), Qt.AlignmentFlag.AlignCenter, "ACTIVE SCAN // 360 DEG")
+
+    def _paint_reactor_design(self, p: QPainter, cx: float, cy: float, fw: float):
+        radius = fw * 0.27 * self._scale
+        glow = QRadialGradient(QPointF(cx, cy), radius * 1.9)
+        glow.setColorAt(0.0, qcol(C.WHITE, 230))
+        glow.setColorAt(0.22, qcol(C.ACC2, 210))
+        glow.setColorAt(0.55, qcol(C.ACC, 85))
+        glow.setColorAt(1.0, qcol(C.PRI, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(glow))
+        p.drawEllipse(QRectF(cx - radius * 1.9, cy - radius * 1.9, radius * 3.8, radius * 3.8))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for index, scale in enumerate((1.0, 1.22, 1.46)):
+            p.setPen(QPen(qcol(C.ACC if index == 0 else C.PRI, 220 - index * 35), 2 if index == 0 else 1))
+            r = radius * scale
+            p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
+        for index in range(8):
+            angle = math.radians(self._rings[0] + index * 45)
+            inner = radius * 1.05
+            outer = radius * (1.28 + 0.08 * (index % 2))
+            p.setPen(QPen(qcol(C.ACC2, 200), 2))
+            p.drawLine(QPointF(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner), QPointF(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer))
+        p.setPen(QPen(qcol(C.WHITE, 220), 1))
+        p.drawText(QRectF(cx - radius * 1.4, cy - 12, radius * 2.8, 24), Qt.AlignmentFlag.AlignCenter, "ARC // CORE")
+
+    def _paint_matrix_design(self, p: QPainter, cx: float, cy: float, fw: float):
+        columns = max(12, int(fw / 22))
+        for index in range(columns):
+            x = (index + 0.5) * self.width() / columns
+            height = fw * (0.18 + ((index * 37 + self._tick * (2 if self.speaking else 1)) % 100) / 150)
+            p.setPen(QPen(qcol(C.GREEN, 150 if index % 3 else 220), 2))
+            p.drawLine(QPointF(x, cy - height), QPointF(x, cy + height))
+            if index % 2 == 0:
+                p.setPen(QPen(qcol(C.PRI, 115), 1))
+                p.drawLine(QPointF(x, cy - height - 12), QPointF(x, cy - height))
+        scan_y = (self._tick * (2 if self.speaking else 1)) % max(1, self.height())
+        p.setPen(QPen(qcol(C.ACC, 210), 2))
+        p.drawLine(QPointF(0, scan_y), QPointF(self.width(), scan_y))
+        side = fw * 0.28
+        p.setPen(QPen(qcol(C.PRI, 220), 2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRect(QRectF(cx - side, cy - side, side * 2, side * 2))
+        p.setPen(QPen(qcol(C.ACC2, 220), 1))
+        p.drawText(QRectF(cx - side, cy - 10, side * 2, 20), Qt.AlignmentFlag.AlignCenter, "NEURAL LINK")
+
+    def _paint_constellation_design(self, p: QPainter, cx: float, cy: float, fw: float):
+        points = []
+        for index in range(13):
+            angle = math.radians(index * 137.5 + self._scan * 0.15)
+            distance = fw * (0.12 + (index % 5) * 0.075)
+            point = (cx + math.cos(angle) * distance, cy + math.sin(angle) * distance)
+            points.append(point)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for first, second in zip(points, points[1:]):
+            p.setPen(QPen(qcol(C.PRI, 105), 1))
+            p.drawLine(QPointF(*first), QPointF(*second))
+        for index, (x, y) in enumerate(points):
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(qcol(C.ACC2 if index % 3 == 0 else C.PRI, 220)))
+            size = 3.5 if index % 3 == 0 else 2.2
+            p.drawEllipse(QPointF(x, y), size, size)
+        p.setPen(QPen(qcol(C.PRI, 180), 1))
+        p.drawEllipse(QRectF(cx - fw * 0.34, cy - fw * 0.34, fw * 0.68, fw * 0.68))
+        p.setPen(QPen(qcol(C.TEXT, 190), 1))
+        p.drawText(QRectF(cx - fw * 0.28, cy + fw * 0.37, fw * 0.56, 20), Qt.AlignmentFlag.AlignCenter, "COGNITIVE CONSTELLATION")
+
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -488,115 +665,99 @@ class HudCanvas(QWidget):
         cx, cy = W / 2, H / 2
         fw = min(W, H)
 
-        # grid dots
-        p.setPen(QPen(qcol(C.PRI_GHO), 1))
-        for x in range(0, W, 48):
-            for y in range(0, H, 48):
-                p.drawPoint(x, y)
+        if self._design_mode == "orb":
+            p.setPen(QPen(qcol(C.PRI_GHO), 1))
+            for x in range(0, W, 48):
+                for y in range(0, H, 48):
+                    p.drawPoint(x, y)
 
         r_face = fw * 0.31
 
-        # halo glow
-        for i in range(10):
-            r   = r_face * (1.8 - i * 0.08)
-            frc = 1.0 - i / 10
-            a   = max(0, min(255, int(self._halo * 0.085 * frc)))
-            col = qcol(C.MUTED_C if self.muted else C.PRI, a)
-            p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
+        if self._design_mode == "orb":
+            for i in range(10):
+                r   = r_face * (1.8 - i * 0.08)
+                frc = 1.0 - i / 10
+                a   = max(0, min(255, int(self._halo * 0.085 * frc)))
+                col = qcol(C.MUTED_C if self.muted else C.PRI, a)
+                p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
 
-        # pulse rings
-        for pr in self._pulses:
-            a   = max(0, int(230 * (1.0 - pr / (fw * 0.74))))
-            col = qcol(C.MUTED_C if self.muted else C.PRI, a)
-            p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(QRectF(cx - pr, cy - pr, pr * 2, pr * 2))
+        if self._design_mode == "orb":
+            # Pulse and telemetry layers belong to the orb presentation.
+            for pr in self._pulses:
+                a = max(0, int(230 * (1.0 - pr / (fw * 0.74))))
+                col = qcol(C.MUTED_C if self.muted else C.PRI, a)
+                p.setPen(QPen(col, 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawEllipse(QRectF(cx - pr, cy - pr, pr * 2, pr * 2))
 
-        # spinning arc rings
-        for idx, (r_frac, w_r, arc_l, gap) in enumerate(
-            [(0.48, 3, 115, 78), (0.40, 2, 78, 55), (0.32, 1, 56, 40)]
-        ):
-            ring_r = fw * r_frac
-            base   = self._rings[idx]
-            a_val  = max(0, min(255, int(self._halo * (1.0 - idx * 0.18))))
-            col    = qcol(C.MUTED_C if self.muted else C.PRI, a_val)
-            p.setPen(QPen(col, w_r)); p.setBrush(Qt.BrushStyle.NoBrush)
-            angle = base
-            rect  = QRectF(cx - ring_r, cy - ring_r, ring_r * 2, ring_r * 2)
-            while angle < base + 360:
-                p.drawArc(rect, int(angle * 16), int(arc_l * 16))
-                angle += arc_l + gap
+            for idx, (r_frac, w_r, arc_l, gap) in enumerate(
+                [(0.48, 3, 115, 78), (0.40, 2, 78, 55), (0.32, 1, 56, 40)]
+            ):
+                ring_r = fw * r_frac
+                base = self._rings[idx]
+                a_val = max(0, min(255, int(self._halo * (1.0 - idx * 0.18))))
+                col = qcol(C.MUTED_C if self.muted else C.PRI, a_val)
+                p.setPen(QPen(col, w_r)); p.setBrush(Qt.BrushStyle.NoBrush)
+                angle = base
+                rect = QRectF(cx - ring_r, cy - ring_r, ring_r * 2, ring_r * 2)
+                while angle < base + 360:
+                    p.drawArc(rect, int(angle * 16), int(arc_l * 16))
+                    angle += arc_l + gap
 
-        # scanners
-        sr = fw * 0.50
-        sa = min(255, int(self._halo * 1.5))
-        ex = 75 if self.speaking else 44
-        p.setPen(QPen(qcol(C.MUTED_C if self.muted else C.PRI, sa), 2.5))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        srect = QRectF(cx - sr, cy - sr, sr * 2, sr * 2)
-        p.drawArc(srect, int(self._scan * 16), int(ex * 16))
-        p.setPen(QPen(qcol(C.ACC, sa // 2), 1.5))
-        p.drawArc(srect, int(self._scan2 * 16), int(ex * 16))
+            sr = fw * 0.50
+            sa = min(255, int(self._halo * 1.5))
+            ex = 75 if self.speaking else 44
+            p.setPen(QPen(qcol(C.MUTED_C if self.muted else C.PRI, sa), 2.5))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            srect = QRectF(cx - sr, cy - sr, sr * 2, sr * 2)
+            p.drawArc(srect, int(self._scan * 16), int(ex * 16))
+            p.setPen(QPen(qcol(C.ACC, sa // 2), 1.5))
+            p.drawArc(srect, int(self._scan2 * 16), int(ex * 16))
 
-        # tick marks
-        t_out, t_in = fw * 0.497, fw * 0.474
-        p.setPen(QPen(qcol(C.PRI, 140), 1))
-        for deg in range(0, 360, 10):
-            rad = math.radians(deg)
-            inn = t_in if deg % 30 == 0 else t_in + 6
-            p.drawLine(
-                QPointF(cx + t_out * math.cos(rad), cy - t_out * math.sin(rad)),
-                QPointF(cx + inn  * math.cos(rad), cy - inn  * math.sin(rad)),
-            )
+            t_out, t_in = fw * 0.497, fw * 0.474
+            p.setPen(QPen(qcol(C.PRI, 140), 1))
+            for deg in range(0, 360, 10):
+                rad = math.radians(deg)
+                inn = t_in if deg % 30 == 0 else t_in + 6
+                p.drawLine(
+                    QPointF(cx + t_out * math.cos(rad), cy - t_out * math.sin(rad)),
+                    QPointF(cx + inn * math.cos(rad), cy - inn * math.sin(rad)),
+                )
 
-        # crosshair
-        ch_r, gap_h = fw * 0.51, fw * 0.16
-        p.setPen(QPen(qcol(C.PRI, int(self._halo * 0.5)), 1))
-        p.drawLine(QPointF(cx - ch_r, cy), QPointF(cx - gap_h, cy))
-        p.drawLine(QPointF(cx + gap_h, cy), QPointF(cx + ch_r, cy))
-        p.drawLine(QPointF(cx, cy - ch_r), QPointF(cx, cy - gap_h))
-        p.drawLine(QPointF(cx, cy + gap_h), QPointF(cx, cy + ch_r))
+            ch_r, gap_h = fw * 0.51, fw * 0.16
+            p.setPen(QPen(qcol(C.PRI, int(self._halo * 0.5)), 1))
+            p.drawLine(QPointF(cx - ch_r, cy), QPointF(cx - gap_h, cy))
+            p.drawLine(QPointF(cx + gap_h, cy), QPointF(cx + ch_r, cy))
+            p.drawLine(QPointF(cx, cy - ch_r), QPointF(cx, cy - gap_h))
+            p.drawLine(QPointF(cx, cy + gap_h), QPointF(cx, cy + ch_r))
 
-        # corner brackets
-        bl = 24
-        bc = qcol(C.PRI, 210)
-        hl, hr = cx - fw // 2, cx + fw // 2
-        ht, hb = cy - fw // 2, cy + fw // 2
-        p.setPen(QPen(bc, 2))
-        for bx, by, dx, dy in [(hl,ht,1,1),(hr,ht,-1,1),(hl,hb,1,-1),(hr,hb,-1,-1)]:
-            p.drawLine(QPointF(bx, by), QPointF(bx + dx * bl, by))
-            p.drawLine(QPointF(bx, by), QPointF(bx, by + dy * bl))
+            bl = 24
+            bc = qcol(C.PRI, 210)
+            hl, hr = cx - fw // 2, cx + fw // 2
+            ht, hb = cy - fw // 2, cy + fw // 2
+            p.setPen(QPen(bc, 2))
+            for bx, by, dx, dy in [(hl, ht, 1, 1), (hr, ht, -1, 1), (hl, hb, 1, -1), (hr, hb, -1, -1)]:
+                p.drawLine(QPointF(bx, by), QPointF(bx + dx * bl, by))
+                p.drawLine(QPointF(bx, by), QPointF(bx, by + dy * bl))
 
-        # face
-        if self._face_px:
-            fsz    = int(fw * 0.62 * self._scale)
-            scaled = self._face_px.scaled(
-                fsz, fsz,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            p.drawPixmap(int(cx - fsz / 2), int(cy - fsz / 2), scaled)
+            self._paint_ultron_orb(p, cx, cy, fw)
+        elif self._design_mode == "radar":
+            self._paint_radar_design(p, cx, cy, fw)
+        elif self._design_mode == "reactor":
+            self._paint_reactor_design(p, cx, cy, fw)
+        elif self._design_mode == "matrix":
+            self._paint_matrix_design(p, cx, cy, fw)
+        elif self._design_mode == "constellation":
+            self._paint_constellation_design(p, cx, cy, fw)
         else:
-            orb_r = int(fw * 0.27 * self._scale)
-            oc    = (200, 0, 50) if self.muted else (0, 60, 110)
-            for i in range(8, 0, -1):
-                r2  = int(orb_r * i / 8)
-                frc = i / 8
-                a   = max(0, min(255, int(self._halo * 1.1 * frc)))
-                p.setBrush(QBrush(QColor(int(oc[0]*frc), int(oc[1]*frc), int(oc[2]*frc), a)))
-                p.setPen(Qt.PenStyle.NoPen)
-                p.drawEllipse(QRectF(cx - r2, cy - r2, r2 * 2, r2 * 2))
-            p.setPen(QPen(qcol(C.PRI, min(255, int(self._halo * 2))), 1))
-            p.setFont(QFont("Courier New", 13, QFont.Weight.Bold))
-            p.drawText(QRectF(cx - 80, cy - 14, 160, 28),
-                       Qt.AlignmentFlag.AlignCenter, self._assistant_name)
+            self._paint_default_design(p, cx, cy, fw)
 
-        # particles
-        for pt in self._particles:
-            a = max(0, min(255, int(pt[4] * 255)))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(qcol(C.PRI, a)))
-            p.drawEllipse(QPointF(pt[0], pt[1]), 2.5, 2.5)
+        if self._design_mode == "orb":
+            for pt in self._particles:
+                a = max(0, min(255, int(pt[4] * 255)))
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QBrush(qcol(C.PRI, a)))
+                p.drawEllipse(QPointF(pt[0], pt[1]), 2.5, 2.5)
 
         # status text
         sy = cy + fw * 0.40
@@ -1461,10 +1622,10 @@ class CustomizeOverlay(QWidget):
 class ThemeOverlay(QWidget):
     """Floating settings section for previewing and selecting complete palettes."""
 
-    saved = pyqtSignal(str, str)  # theme_name, primary_colour
-    _OW, _OH = 510, 510
+    saved = pyqtSignal(str, str, str)  # theme_name, primary_colour, design_mode
+    _OW, _OH = 510, 570
 
-    def __init__(self, theme_name: str, ui_color: str, parent=None):
+    def __init__(self, theme_name: str, ui_color: str, design_mode: str = DEFAULT_DESIGN_MODE, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -1475,8 +1636,10 @@ class ThemeOverlay(QWidget):
         """)
         self._initial_theme = theme_name if theme_name in _THEMES else "Custom"
         self._initial_color = (ui_color or DEFAULT_UI_COLOR).strip().lower()
+        self._initial_design = design_mode if design_mode in _DESIGN_MODES else DEFAULT_DESIGN_MODE
         self._selected_theme = self._initial_theme
         self._selected_color = self._initial_color
+        self._selected_design = self._initial_design
         self.on_preview = None
         self._theme_buttons: dict[str, QPushButton] = {}
 
@@ -1515,6 +1678,25 @@ class ThemeOverlay(QWidget):
                 row.addStretch()
             grid.addLayout(row)
         lay.addLayout(grid)
+
+        design_title = QLabel("DESIGN")
+        design_title.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        design_title.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent; padding-top: 6px;")
+        lay.addWidget(design_title)
+        self._design_combo = QComboBox()
+        self._design_combo.addItem("Orb - animated tactical visualization", "orb")
+        self._design_combo.addItem("Default - clean assistant portrait", "default")
+        self._design_combo.addItem("Radar Grid - scanning sensor array", "radar")
+        self._design_combo.addItem("Reactor Core - energized power cell", "reactor")
+        self._design_combo.addItem("Matrix Scan - neural data field", "matrix")
+        self._design_combo.addItem("Constellation - cognitive star map", "constellation")
+        selected_index = self._design_combo.findData(self._selected_design)
+        self._design_combo.setCurrentIndex(selected_index if selected_index >= 0 else 0)
+        self._design_combo.setFont(QFont("Courier New", 8))
+        self._design_combo.setFixedHeight(30)
+        self._design_combo.setStyleSheet(f"QComboBox {{ color: {C.TEXT}; background: {C.PANEL}; border: 1px solid {C.BORDER}; padding: 3px 7px; }} QComboBox QAbstractItemView {{ color: {C.TEXT}; background: {C.PANEL}; selection-background-color: {C.PRI_GHO}; }}")
+        self._design_combo.currentIndexChanged.connect(self._select_design)
+        lay.addWidget(self._design_combo)
 
         note = QLabel("Custom accent colours remain available under Customise Assistant.")
         note.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1555,18 +1737,23 @@ class ThemeOverlay(QWidget):
         self._selected_color = _THEMES[theme_name]["PRI"]
         self._style_theme_buttons()
         if self.on_preview:
-            self.on_preview(theme_name)
+            self.on_preview(theme_name, self._selected_design)
+
+    def _select_design(self, _index: int):
+        self._selected_design = str(self._design_combo.currentData() or DEFAULT_DESIGN_MODE)
+        if self.on_preview:
+            self.on_preview(self._selected_theme, self._selected_design)
 
     def _cancel(self):
         if self.on_preview:
             if self._initial_theme in _THEMES:
-                self.on_preview(self._initial_theme)
+                self.on_preview(self._initial_theme, self._initial_design)
             else:
-                self.on_preview("Custom", self._initial_color)
+                self.on_preview("Custom", self._initial_design, self._initial_color)
         self.hide()
 
     def _save(self):
-        self.saved.emit(self._selected_theme, self._selected_color)
+        self.saved.emit(self._selected_theme, self._selected_color, self._selected_design)
         self.hide()
 
 
@@ -1688,7 +1875,10 @@ class PersonalizationOverlay(QWidget):
         self._coding_language = QComboBox()
         self._coding_language.addItems(["Python", "JavaScript", "TypeScript", "Java", "C#", "C++", "Go", "Rust"])
         self._coding_language.setCurrentText(str(config.get("default_coding_language", "Python")))
-        for title, control in (("Personality", self._personality_preset), ("Response length", self._response_length), ("Language", self._language), ("Coding language", self._coding_language)):
+        self._skill_profile = QComboBox()
+        self._skill_profile.addItems(["General", "Coding", "Research", "Household", "Productivity"])
+        self._skill_profile.setCurrentText(str(config.get("skill_profile", "general")).title())
+        for title, control in (("Personality", self._personality_preset), ("Response length", self._response_length), ("Language", self._language), ("Coding language", self._coding_language), ("Skill profile", self._skill_profile)):
             row = QHBoxLayout(); item = QLabel(title.upper()); item.setFixedWidth(132)
             item.setFont(QFont("Courier New", 8, QFont.Weight.Bold)); item.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
             control.setFont(QFont("Courier New", 8)); control.setStyleSheet(f"QComboBox {{ {field_style} }} QComboBox::drop-down {{ border: none; }}")
@@ -1761,7 +1951,7 @@ class PersonalizationOverlay(QWidget):
             signal = control.textChanged if isinstance(control, (QLineEdit, QTextEdit)) else None
             if signal:
                 signal.connect(self._schedule_save)
-        for control in (self._personality_preset, self._response_length, self._language, self._coding_language):
+        for control in (self._personality_preset, self._response_length, self._language, self._coding_language, self._skill_profile):
             control.currentTextChanged.connect(self._schedule_save)
         for control in self._behavior.values():
             control.toggled.connect(self._schedule_save)
@@ -1787,6 +1977,7 @@ class PersonalizationOverlay(QWidget):
             "response_length": self._response_length.currentText(),
             "preferred_language": self._language.currentText(),
             "default_coding_language": self._coding_language.currentText(),
+            "skill_profile": self._skill_profile.currentText().lower(),
         }
         settings.update({key: control.isChecked() for key, control in self._behavior.items()})
         settings.update({key: control.value() for key, control in self._preference_sliders.items()})
@@ -2277,6 +2468,9 @@ class MainWindow(QMainWindow):
         # Kayıtlı UI rengini panel/stylesheet'ler kurulmadan ÖNCE uygula
         _ui_theme = (_cfg.get("ui_theme") or "").strip()
         _ui_color = (_cfg.get("ui_color") or "").strip()
+        self._design_mode = (_cfg.get("design_mode") or DEFAULT_DESIGN_MODE).strip()
+        if self._design_mode not in _DESIGN_MODES:
+            self._design_mode = DEFAULT_DESIGN_MODE
         if _ui_theme in _THEMES:
             apply_ui_theme(_ui_theme)
         elif _ui_color and _ui_color.lower() != DEFAULT_UI_COLOR:
@@ -2328,7 +2522,7 @@ class MainWindow(QMainWindow):
         body.addWidget(self._left_panel, stretch=0)
 
         # Center column: HUD + resizable content panel via QSplitter
-        self.hud = HudCanvas(face_path, _display)
+        self.hud = HudCanvas(face_path, _display, self._design_mode)
         self.hud.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._content_panel = self._build_content_panel()
 
@@ -3743,12 +3937,15 @@ class MainWindow(QMainWindow):
         cfg = _read_full_config()
         theme = (cfg.get("ui_theme") or "").strip()
         color = (cfg.get("ui_color") or C.PRI).strip()
+        design_mode = (cfg.get("design_mode") or DEFAULT_DESIGN_MODE).strip()
+        if design_mode not in _DESIGN_MODES:
+            design_mode = DEFAULT_DESIGN_MODE
         if theme not in _THEMES:
             theme = "Custom" if color.lower() != DEFAULT_UI_COLOR else DEFAULT_UI_THEME
         if self._theme_overlay:
             self._theme_overlay.hide()
         cw = self.centralWidget()
-        overlay = ThemeOverlay(theme, color, parent=cw)
+        overlay = ThemeOverlay(theme, color, design_mode, parent=cw)
         ow = min(ThemeOverlay._OW, cw.width() - 16)
         oh = min(ThemeOverlay._OH, cw.height() - 16)
         overlay.setGeometry((cw.width() - ow) // 2, (cw.height() - oh) // 2, ow, oh)
@@ -3758,24 +3955,28 @@ class MainWindow(QMainWindow):
         overlay.raise_()
         self._theme_overlay = overlay
 
-    def _preview_theme(self, theme_name: str, custom_color: str = ""):
+    def _preview_theme(self, theme_name: str, design_mode: str = DEFAULT_DESIGN_MODE, custom_color: str = ""):
         old = current_palette()
         if theme_name in _THEMES:
             apply_ui_theme(theme_name)
         elif theme_name == "Custom":
             apply_ui_accent(custom_color)
         retheme_all_widgets(old, current_palette())
+        self.hud.set_design_mode(design_mode)
 
-    def _apply_theme_update(self, theme_name: str, primary_color: str):
+    def _apply_theme_update(self, theme_name: str, primary_color: str, design_mode: str):
         if theme_name not in _THEMES:
             return
         old = current_palette()
         apply_ui_theme(theme_name)
         retheme_all_widgets(old, current_palette())
+        self._design_mode = design_mode if design_mode in _DESIGN_MODES else DEFAULT_DESIGN_MODE
+        self.hud.set_design_mode(self._design_mode)
         try:
             data = _read_full_config()
             data["ui_theme"] = theme_name
             data["ui_color"] = primary_color.lower()
+            data["design_mode"] = self._design_mode
             API_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
             self._log.append_log(f"SYS: Theme applied — {theme_name}")
         except Exception as e:

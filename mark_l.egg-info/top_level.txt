@@ -1,0 +1,10 @@
+actions
+config
+core
+dashboard
+main
+memory
+security
+tool_registry
+ui
+version

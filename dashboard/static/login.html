@@ -153,16 +153,13 @@
   </div>
 
   <script>
-    // Try auto-reconnect with stored device token (set on first QR login)
+    // Try auto-reconnect with the HttpOnly device cookie set during QR login.
     (async function() {
-      const devTok = localStorage.getItem('friday_device_token');
-      if (!devTok) return;
       document.getElementById('reconnecting').style.display = 'block';
       try {
         const r = await fetch('/api/device-login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device_token: devTok }),
+          credentials: 'same-origin',
         });
         const d = await r.json();
         if (d.ok && d.token) {
@@ -172,8 +169,6 @@
           return;
         }
       } catch (_) {}
-      // Device token rejected (server restarted) — clear it and show normal form
-      localStorage.removeItem('friday_device_token');
       document.getElementById('reconnecting').style.display = 'none';
     })();
 

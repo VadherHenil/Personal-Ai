@@ -8,27 +8,64 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:      #07090f;
-      --surface: rgba(255,255,255,0.04);
-      --border:  rgba(255,255,255,0.07);
-      --accent:  #6366f1;
-      --adim:    rgba(99,102,241,0.14);
-      --text:    #dde3ed;
-      --muted:   #5e6a7e;
-      --green:   #22c55e;
-      --gdim:    rgba(34,197,94,0.14);
+      --bg: #0a0f1d; --surface: rgba(255,255,255,0.04); --border: rgba(100,190,210,0.24);
+      --accent: #06b6d4; --adim: rgba(6,182,212,0.14); --text: #e6f4f5; --muted: #78939a;
+      --green: #10b981; --gdim: rgba(16,185,129,0.14); --panel: #101b2a;
+      --header-bg: rgba(10,15,29,0.95); --footer-bg: rgba(10,15,29,0.95);
     }
     html, body {
       height: 100%; background: var(--bg); color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: var(--font-body, 'Segoe UI', sans-serif);
       display: flex; flex-direction: column; overflow: hidden;
     }
+    body[data-theme="cyber"] { --font-body: 'Cascadia Code', Consolas, monospace; }
+    body[data-theme="clinical"] { --font-body: 'Trebuchet MS', sans-serif; letter-spacing: .01em; }
+    body[data-theme="crt"] { --font-body: 'Courier New', monospace; letter-spacing: .04em; }
+    body[data-theme="obsidian"] { --font-body: 'Segoe UI', sans-serif; }
+    body[data-theme="parchment"] { --font-body: Georgia, 'Times New Roman', serif; }
+    body[data-theme="synthwave"] { --font-body: 'Trebuchet MS', sans-serif; }
+    body[data-theme="crt"]::before { content: ''; position: fixed; inset: 0; z-index: 10; pointer-events: none; opacity: .1; background: repeating-linear-gradient(0deg, transparent 0 3px, #8affb0 4px); }
+    body[data-theme="synthwave"] { background: linear-gradient(135deg, #0f0724 0%, #24104b 55%, #12052a 100%); }
+    body[data-theme="parchment"] { background: #fcf7ea; }
+    body[data-theme="studio"] { --font-body: 'Trebuchet MS', 'Segoe UI', sans-serif; background: radial-gradient(circle at 86% 8%, rgba(255,115,87,.16), transparent 23%), #f7f3ee; }
+    body[data-theme="studio"] header { border-bottom: 0; padding: 18px 24px 12px; background: transparent; }
+    body[data-theme="studio"] .logo { color: #2e2530; letter-spacing: 3px; }
+    body[data-theme="studio"] .pill { background: #fffaf5; border-color: #e8dcd2; }
+    body[data-theme="studio"] #workspace { margin: 0 18px 14px; border: 1px solid #e8dcd2; border-radius: 22px; overflow: hidden; background: rgba(255,252,248,.72); box-shadow: 0 20px 50px rgba(85,54,36,.08); }
+    body[data-theme="studio"] #history { background: rgba(255,250,245,.68); border-right-color: #eadfd5; }
+    body[data-theme="studio"] .history-item { border-radius: 11px; }
+    body[data-theme="studio"] .msg { border-radius: 18px; box-shadow: 0 5px 14px rgba(88,58,46,.05); }
+    body[data-theme="studio"] .msg-j { background: #fffaf5; border-color: #f0ddd0; border-bottom-left-radius: 5px; }
+    body[data-theme="studio"] .msg-u { background: #ffe2d8; border-color: #ffd0c3; border-bottom-right-radius: 5px; }
+    body[data-theme="studio"] footer { margin: 0 18px 18px; border: 1px solid #e8dcd2; border-radius: 18px; background: #fffaf5; box-shadow: 0 12px 28px rgba(85,54,36,.08); }
+    body[data-theme="studio"] #inp { background: #fff; border-color: #eadfd5; border-radius: 14px; }
+    body[data-theme="studio"] .theme-panel, body[data-theme="studio"] .memory-panel { border-color: #eadfd5; box-shadow: 0 24px 80px rgba(85,54,36,.18); }
+    body[data-theme="paper"] { --font-body: Georgia, 'Times New Roman', serif; background: #f1efe8; }
+    body[data-theme="paper"] header { padding: 18px 28px; background: #f1efe8; border-bottom-color: #d9d5ca; }
+    body[data-theme="paper"] .logo { font-family: Georgia, serif; font-size: 17px; letter-spacing: 1px; font-weight: 500; }
+    body[data-theme="paper"] .pill { border-radius: 4px; background: transparent; border-color: #d9d5ca; }
+    body[data-theme="paper"] #workspace { margin: 0 28px; border-top: 1px solid #d9d5ca; }
+    body[data-theme="paper"] #history { background: transparent; border-right: 1px solid #d9d5ca; }
+    body[data-theme="paper"] .history-item { border-radius: 2px; padding: 9px 6px; }
+    body[data-theme="paper"] .msg { border-radius: 4px; box-shadow: none; }
+    body[data-theme="paper"] .msg-j { background: #fbfaf6; border-color: #ddd9ce; border-left: 3px solid #3f776c; border-bottom-left-radius: 0; }
+    body[data-theme="paper"] .msg-u { background: #e2ebe5; border-color: #c9dbd0; border-bottom-right-radius: 0; }
+    body[data-theme="paper"] footer { margin: 12px 28px 20px; padding: 8px; border: 1px solid #d9d5ca; background: #fbfaf6; }
+    body[data-theme="paper"] #inp { background: transparent; border: 0; border-bottom: 1px solid #c8c6bd; border-radius: 0; }
+    body[data-theme="paper"] .btn { border-radius: 4px; }
+    body[data-theme="paper"] .theme-panel, body[data-theme="paper"] .memory-panel { border-radius: 4px; border-color: #d9d5ca; }
+    body[data-theme="studio"] .theme-card[data-theme="studio"], body[data-theme="paper"] .theme-card[data-theme="paper"] { background: #fffaf5; }
+    body[data-theme="paper"] .theme-card[data-theme="paper"] { background: #fbfaf6; }
+    body[data-theme="clinical"] .msg { border-radius: 3px; }
+    body[data-theme="clinical"] .btn { border-radius: 3px; }
+    body[data-theme="obsidian"] * { box-shadow: none !important; }
+    body[data-theme="obsidian"] .msg { border-radius: 3px; }
 
     /* ── HEADER ── */
     header {
       flex-shrink: 0; display: flex; align-items: center; gap: 10px;
       padding: 12px 16px; border-bottom: 1px solid var(--border);
-      background: rgba(7,9,15,0.95);
+      background: var(--header-bg);
     }
     .logo { font-size: 15px; font-weight: 700; letter-spacing: 6px; }
     .logo em { color: var(--accent); font-style: normal; }
@@ -50,6 +87,48 @@
     .enc-badge.on  { display: block; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: var(--green); }
     .enc-badge.off { display: block; background: rgba(255,100,100,0.08); border: 1px solid rgba(255,100,100,0.2); color: #f87171; }
     .url { font-size: 10px; font-family: monospace; color: var(--muted); padding: 4px 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+    #memory-modal { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.68); }
+    #memory-modal[hidden] { display: none; }
+    .memory-panel { width: min(560px, 92vw); max-height: 80vh; overflow-y: auto; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+    #theme-modal { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.68); }
+    #theme-modal[hidden] { display: none; }
+    .theme-panel { width: min(680px, 94vw); max-height: 82vh; overflow-y: auto; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+    .theme-panel h2 { margin-bottom: 12px; font-size: 17px; }
+    .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .theme-card { text-align: left; padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+    .theme-card.active { border-color: var(--accent); outline: 2px solid var(--adim); }
+    .theme-card strong { display: block; font-size: 12px; margin-bottom: 4px; }
+    .theme-card small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .accent-row { display: flex; gap: 9px; margin-top: 15px; flex-wrap: wrap; }
+    .accent-swatch { width: 25px; height: 25px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .accent-swatch.active { border-color: var(--text); outline: 2px solid var(--accent); }
+    .memory-panel h2 { margin-bottom: 12px; font-size: 16px; }
+    .memory-row { display: flex; gap: 8px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 12px; }
+    .memory-row span { flex: 1; }
+    .memory-category { color: var(--accent); font-size: 9px; letter-spacing: 1px; }
+    #metrics-strip { display:flex; gap:8px; padding:7px 14px; border-bottom:1px solid var(--border); background:var(--header-bg); overflow-x:auto; }
+    .metric-chip { min-width:94px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--surface); }
+    .metric-chip small { display:block; color:var(--muted); font-size:8px; letter-spacing:1px; }
+    .metric-chip strong { display:block; color:var(--accent); font-size:12px; margin-top:2px; }
+
+    /* ── HISTORY ── */
+    #workspace { flex: 1; min-height: 0; display: flex; }
+    #history { width: 250px; flex-shrink: 0; padding: 12px; border-right: 1px solid var(--border); background: rgba(0,0,0,0.12); overflow-y: auto; }
+    #history h2 { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+    #history-search { width: 100%; padding: 8px 9px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none; }
+    .history-group { margin: 12px 0 5px; color: var(--muted); font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase; }
+    .history-item { display: flex; gap: 5px; align-items: center; padding: 7px 5px; border-radius: 7px; cursor: pointer; }
+    .history-item:hover, .history-item.active { background: var(--adim); }
+    .history-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+    .history-time { color: var(--muted); font-size: 9px; flex-shrink: 0; }
+    .history-action { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 2px; }
+    .history-action:hover { color: var(--accent); }
+    .msg-tools { display:flex; gap:7px; margin-top:7px; opacity:.55; }
+    .msg:hover .msg-tools { opacity:1; }
+    .msg-tool { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:0; font-size:11px; }
+    .msg-tool:hover { color:var(--accent); }
+    .msg-time { float:right; margin-left:12px; color:var(--muted); font-size:9px; opacity:.7; }
+    #workspace main { min-width: 0; }
 
     /* ── FEED ── */
     main { flex: 1; overflow-y: auto; padding: 14px 16px 8px; display: flex; flex-direction: column; gap: 10px; }
@@ -86,7 +165,7 @@
     .fc-dl:hover { opacity: 0.8; }
 
     /* ── FOOTER ── */
-    footer { flex-shrink:0; padding:10px 14px; border-top:1px solid var(--border); background:rgba(7,9,15,0.95); display:flex; gap:8px; align-items:center; }
+    footer { flex-shrink:0; padding:10px 14px; border-top:1px solid var(--border); background:var(--footer-bg); display:flex; gap:8px; align-items:center; }
     #inp { flex:1; padding:11px 14px; background:var(--surface); border:1.5px solid var(--border); border-radius:12px; color:var(--text); font-size:14px; outline:none; transition:border-color 0.15s; }
     #inp:focus { border-color: var(--accent); }
     #inp::placeholder { color: var(--muted); }
@@ -132,6 +211,9 @@
     }
     #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     @media (max-width: 560px) {
+      body[data-theme="studio"] #workspace, body[data-theme="studio"] footer { margin-left: 8px; margin-right: 8px; }
+      body[data-theme="paper"] #workspace, body[data-theme="paper"] footer { margin-left: 10px; margin-right: 10px; }
+      #history { width: 190px; }
       header { padding: 10px 12px; gap: 7px; }
       .logo { font-size: 13px; letter-spacing: 4px; }
       .url, .enc-badge { display: none !important; }
@@ -150,10 +232,48 @@
     <div class="logo" id="assistant-brand" data-name="__ASSISTANT_NAME__"><em>__ASSISTANT_INITIAL__</em>__ASSISTANT_NAME_REST__</div>
     <div class="pill" id="pill"><span class="dot"></span><span id="st">Connecting</span></div>
     <div class="enc-badge" id="enc">AES-256</div>
+    <button class="btn" style="padding:6px 9px;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="openMemories()">MEMORY</button>
+    <button class="btn" style="padding:6px 9px;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="openThemes()">THEME</button>
+    <button class="btn" id="fork-btn" style="padding:6px 9px;background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="forkActive()" title="Fork this conversation">FORK</button>
     <div class="spacer"></div>
     <div class="url">__IP__:__PORT__</div>
   </header>
-  <main id="feed"></main>
+  <section id="metrics-strip" aria-label="Live system metrics">
+    <div class="metric-chip"><small>CPU</small><strong id="metric-cpu">--</strong></div>
+    <div class="metric-chip"><small>MEMORY</small><strong id="metric-mem">--</strong></div>
+    <div class="metric-chip"><small>GPU</small><strong id="metric-gpu">--</strong></div>
+    <div class="metric-chip"><small>NETWORK</small><strong id="metric-net">--</strong></div>
+    <div class="metric-chip"><small>MONITORS</small><strong id="metric-monitors">0</strong></div>
+  </section>
+  <div id="memory-modal" hidden>
+    <section class="memory-panel">
+      <h2>Manage AI Memories</h2>
+      <div id="memory-list"></div>
+      <input id="new-memory" placeholder="Add a memory fact" style="width:100%;margin-top:12px;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text)">
+      <select id="new-memory-category" style="width:100%;margin-top:7px;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text)">
+        <option>USER_PREFERENCES</option><option>TECH_STACK</option><option>PROJECT_CONTEXT</option><option>CORRECTION_HABITS</option>
+      </select>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" onclick="closeMemories()">CLOSE</button><button class="btn btn-send" onclick="addMemory()">ADD</button></div>
+    </section>
+  </div>
+  <div id="theme-modal" hidden>
+    <section class="theme-panel">
+      <h2>Choose Interface Theme</h2>
+      <div id="theme-grid" class="theme-grid"></div>
+      <div class="memory-category" style="margin-top:16px">ACCENT COLOR</div>
+      <div id="accent-row" class="accent-row"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn" onclick="closeThemes()">CLOSE</button></div>
+    </section>
+  </div>
+  <div id="workspace">
+    <aside id="history">
+      <h2>Conversations</h2>
+      <input id="history-search" placeholder="Search history" autocomplete="off">
+      <button class="btn btn-send" style="width:100%;padding:8px;margin-bottom:4px" onclick="newSession()">NEW CHAT</button>
+      <div id="history-list"></div>
+    </aside>
+    <main id="feed"></main>
+  </div>
   <footer>
     <input id="inp" placeholder="Send a command to __ASSISTANT_NAME__…" autocomplete="off">
     <label class="btn-attach" for="file-inp" title="Send file">📎</label>
@@ -167,6 +287,7 @@
     // ── Auth — bearer token ───────────────────────────────────────────────────
     const _authToken  = sessionStorage.getItem('friday_token');
     const _sessionKey = sessionStorage.getItem('friday_key');
+    let activeSessionId = null;
 
     if (!_authToken) {
       location.replace('/login');
@@ -177,6 +298,62 @@
       opts.headers = Object.assign({}, opts.headers, _authHeader());
       return fetch(url, opts);
     }
+
+    const THEME_ARCHETYPES = {
+      cyber: {name:'Cyber-Defense Ops', detail:'Tactical telemetry cockpit', bg:'#0a0f1d', surface:'rgba(255,255,255,.04)', border:'rgba(100,190,210,.24)', text:'#e6f4f5', muted:'#78939a', panel:'#101b2a', header:'rgba(10,15,29,.95)'},
+      clinical: {name:'Clinical Studio', detail:'Swiss high-contrast light', bg:'#f8fafc', surface:'#ffffff', border:'#e2e8f0', text:'#0f172a', muted:'#64748b', panel:'#ffffff', header:'rgba(248,250,252,.96)'},
+      crt: {name:'Retro CRT Terminal', detail:'Phosphor command console', bg:'#030d06', surface:'rgba(40,180,80,.08)', border:'rgba(104,255,145,.28)', text:'#b7f7c6', muted:'#609b6d', panel:'#06170a', header:'rgba(3,13,6,.96)'},
+      obsidian: {name:'Obsidian OLED Void', detail:'Pure black stealth minimalism', bg:'#000000', surface:'#0b0b0b', border:'#262626', text:'#f5f5f5', muted:'#737373', panel:'#080808', header:'rgba(0,0,0,.96)'},
+      parchment: {name:'Solarized Parchment', detail:'Warm editorial reading room', bg:'#fcf7ea', surface:'#fffdf6', border:'#d9c79f', text:'#3f3425', muted:'#87755d', panel:'#fffaf0', header:'rgba(252,247,234,.96)'},
+      synthwave: {name:'Synthwave Horizon', detail:'Neon horizon interface', bg:'#0f0724', surface:'rgba(255,255,255,.06)', border:'rgba(218,117,255,.3)', text:'#f7edff', muted:'#aa91c5', panel:'#1a0d39', header:'rgba(15,7,36,.94)'},
+      studio: {name:'Canvas Companion', detail:'Warm, expressive AI studio', bg:'#f7f3ee', surface:'#fffaf5', border:'#e8dcd2', text:'#2e2530', muted:'#8b7d7b', panel:'#fffaf5', header:'rgba(247,243,238,.94)', recommendedAccent:'coral'},
+      paper: {name:'Quiet Atelier', detail:'Editorial workspace for thoughtful chats', bg:'#f1efe8', surface:'#fbfaf6', border:'#d9d5ca', text:'#252824', muted:'#77786e', panel:'#fbfaf6', header:'rgba(241,239,232,.95)', recommendedAccent:'sage'}
+    };
+    const THEME_ACCENTS = {
+      emerald: {name:'Emerald Sentinel', color:'#10b981'}, cyan:{name:'Electric Cyan', color:'#06b6d4'}, violet:{name:'Quantum Violet', color:'#8b5cf6'}, crimson:{name:'Alert Crimson', color:'#f43f5e'}, amber:{name:'Solar Amber', color:'#f59e0b'}, cobalt:{name:'Cobalt Shield', color:'#3b82f6'}, coral:{name:'Soft Coral', color:'#ef705e'}, sage:{name:'Studio Sage', color:'#3f776c'}
+    };
+
+    function applyTheme(archetype, accent) {
+      const themeKey = Object.hasOwn(THEME_ARCHETYPES, archetype) ? archetype : 'cyber';
+      const accentKey = Object.hasOwn(THEME_ACCENTS, accent) ? accent : 'cyan';
+      const theme = THEME_ARCHETYPES[themeKey];
+      const root = document.documentElement;
+      root.dataset.theme = themeKey;
+      document.body.dataset.theme = themeKey;
+      root.style.setProperty('--bg', theme.bg); root.style.setProperty('--surface', theme.surface);
+      root.style.setProperty('--border', theme.border); root.style.setProperty('--text', theme.text);
+      root.style.setProperty('--muted', theme.muted); root.style.setProperty('--panel', theme.panel);
+      root.style.setProperty('--header-bg', theme.header); root.style.setProperty('--footer-bg', theme.header);
+      root.style.setProperty('--accent', THEME_ACCENTS[accentKey].color);
+      root.style.setProperty('--adim', `color-mix(in srgb, ${THEME_ACCENTS[accentKey].color} 16%, transparent)`);
+      localStorage.setItem('friday_theme_archetype', themeKey);
+      localStorage.setItem('friday_theme_accent', accentKey);
+      window.fridayTheme = {archetype: themeKey, accent: accentKey};
+      renderThemePicker();
+    }
+
+    function renderThemePicker() {
+      const grid = document.getElementById('theme-grid');
+      const swatches = document.getElementById('accent-row');
+      if (!grid || !swatches || !window.fridayTheme) return;
+      grid.innerHTML = '';
+      for (const [key, theme] of Object.entries(THEME_ARCHETYPES)) {
+        const card = document.createElement('button'); card.className = 'theme-card' + (key === window.fridayTheme.archetype ? ' active' : '');
+        card.dataset.theme = key;
+        card.innerHTML = `<strong>${esc(theme.name)}</strong><small>${esc(theme.detail)}</small>`;
+        card.onclick = () => applyTheme(key, theme.recommendedAccent || window.fridayTheme.accent); grid.appendChild(card);
+      }
+      swatches.innerHTML = '';
+      for (const [key, accent] of Object.entries(THEME_ACCENTS)) {
+        const swatch = document.createElement('button'); swatch.className = 'accent-swatch' + (key === window.fridayTheme.accent ? ' active' : '');
+        swatch.style.background = accent.color; swatch.title = accent.name; swatch.setAttribute('aria-label', accent.name);
+        swatch.onclick = () => applyTheme(window.fridayTheme.archetype, key); swatches.appendChild(swatch);
+      }
+    }
+
+    function openThemes() { renderThemePicker(); document.getElementById('theme-modal').hidden = false; }
+    function closeThemes() { document.getElementById('theme-modal').hidden = true; }
+    applyTheme(localStorage.getItem('friday_theme_archetype'), localStorage.getItem('friday_theme_accent'));
 
     // ── AES-256-CBC encryption (CryptoJS) ────────────────────────────────────
     const _AES_SALT = 'FRIDAY-DASHBOARD-v1';
@@ -231,12 +408,12 @@
     const _wsUrl   = `${_wsProto}://${location.host}/ws?token=${encodeURIComponent(_authToken)}`;
     const ws       = new WebSocket(_wsUrl);
 
-    ws.onopen    = () => { sys('Remote session active.'); toast(`Connected to ${assistantName}`); };
+    ws.onopen    = () => { sys('Remote session active.'); toast(`Connected to ${assistantName}`); loadSessions(); };
     ws.onclose   = () => sys('Connection lost — refresh to reconnect.');
     ws.onerror   = () => sys('Connection error.');
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
-      if (m.type === 'log')           append(m.speaker, m.text);
+      if (m.type === 'log')           { append(m.speaker, m.text); if (m.speaker === 'friday') loadSessions(); }
       if (m.type === 'status')        setStatus(m.state);
       if (m.type === 'wake')          sys('Wake word detected — connecting…');
       if (m.type === 'sys')           sys(m.text);
@@ -252,14 +429,31 @@
       }
     }
 
-    function append(speaker, text) {
+    function append(speaker, text, messageId = '', timestamp = '') {
       const d = document.createElement('div');
       if (speaker === 'friday') {
         d.className = 'msg msg-j';
-        d.innerHTML = `<div class="lbl">${esc(assistantName)}</div>${esc(text)}`;
+        d.innerHTML = `<div class="lbl">${esc(assistantName)}${timestamp ? `<span class="msg-time">${esc(formatTime(timestamp))}</span>` : ''}</div>${esc(text)}`;
       } else {
         d.className = 'msg msg-u';
-        d.innerHTML = `<div class="lbl">You</div>${esc(text)}`;
+        d.innerHTML = `<div class="lbl">You${timestamp ? `<span class="msg-time">${esc(formatTime(timestamp))}</span>` : ''}</div>${esc(text)}`;
+      }
+      if (messageId) {
+        const tools = document.createElement('div'); tools.className = 'msg-tools';
+        const addTool = (label, title, action) => {
+          const button = document.createElement('button'); button.className = 'msg-tool';
+          button.textContent = label; button.title = title;
+          button.onclick = (event) => { event.stopPropagation(); action(); };
+          tools.appendChild(button);
+        };
+        addTool('↗', 'Quote / reply', () => quoteMessage(text));
+        addTool('⧉', 'Copy message', () => copyMessage(text));
+        if (speaker === 'user') addTool('✎', 'Edit prompt', () => editMessage(messageId, text));
+        if (speaker === 'friday') {
+          addTool('↻', 'Regenerate response', () => regenerateMessage(messageId));
+          addTool('⑂', 'Branch from this message', () => branchAt(messageId));
+        }
+        d.appendChild(tools);
       }
       feed.appendChild(d);
       feed.scrollTop = feed.scrollHeight;
@@ -272,7 +466,151 @@
     }
 
     function esc(s) {
-      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function formatTime(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+
+    async function loadSessions() {
+      const query = document.getElementById('history-search').value.trim();
+      const response = await _authFetch('/api/sessions?query=' + encodeURIComponent(query));
+      if (!response.ok) return;
+      const data = await response.json();
+      const list = document.getElementById('history-list');
+      list.innerHTML = '';
+      for (const [group, sessions] of Object.entries(data.groups || {})) {
+        if (!sessions.length) continue;
+        const heading = document.createElement('div');
+        heading.className = 'history-group'; heading.textContent = group; list.appendChild(heading);
+        for (const session of sessions) {
+          const row = document.createElement('div');
+          row.className = 'history-item' + (session.id === activeSessionId ? ' active' : '');
+          row.innerHTML = `<span class="history-title">${session.pinned ? '★ ' : ''}${esc(session.title)}</span><span class="history-time">${esc(formatTime(session.updated_at))}</span>`;
+          const pin = document.createElement('button'); pin.className = 'history-action'; pin.textContent = session.pinned ? '★' : '☆'; pin.title = session.pinned ? 'Unpin' : 'Pin';
+          pin.onclick = (event) => { event.stopPropagation(); updateSession(session.id, {pinned: !session.pinned}); };
+          const rename = document.createElement('button'); rename.className = 'history-action'; rename.textContent = 'Rename';
+          rename.onclick = (event) => { event.stopPropagation(); renameSession(session); };
+          const remove = document.createElement('button'); remove.className = 'history-action'; remove.textContent = 'Delete';
+          remove.onclick = (event) => { event.stopPropagation(); deleteSession(session.id); };
+          row.append(pin, rename, remove); row.onclick = () => selectSession(session.id); list.appendChild(row);
+        }
+      }
+    }
+
+    async function selectSession(id) {
+      const response = await _authFetch('/api/sessions/' + encodeURIComponent(id));
+      if (!response.ok) return;
+      const session = await response.json(); activeSessionId = session.id; feed.innerHTML = '';
+      for (const message of session.messages || []) {
+        if (message.role === 'system' || message.role === 'tool') continue;
+        append(message.role === 'assistant' ? 'friday' : 'user', message.content, message.id, message.timestamp);
+      }
+      loadSessions();
+    }
+
+    async function newSession() {
+      const response = await _authFetch('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+      if (!response.ok) return;
+      const data = await response.json(); activeSessionId = data.session.id; feed.innerHTML = ''; loadSessions();
+    }
+
+    async function updateSession(id, patch) {
+      await _authFetch('/api/sessions/' + encodeURIComponent(id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(patch)}); loadSessions();
+    }
+
+    function renameSession(session) {
+      const title = prompt('Conversation name', session.title);
+      if (title && title.trim()) updateSession(session.id, {title: title.trim()});
+    }
+
+    async function deleteSession(id) {
+      if (!confirm('Delete this conversation?')) return;
+      const response = await _authFetch('/api/sessions/' + encodeURIComponent(id), {method:'DELETE'});
+      if (response.ok && activeSessionId === id) { activeSessionId = null; feed.innerHTML = ''; }
+      loadSessions();
+    }
+
+    async function branchAt(messageId) {
+      if (!activeSessionId) return;
+      const response = await _authFetch('/api/sessions/' + encodeURIComponent(activeSessionId) + '/branch', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message_id: messageId})});
+      if (!response.ok) return;
+      const data = await response.json(); await selectSession(data.session.id); toast('Branch created');
+    }
+
+    async function forkActive() {
+      if (!activeSessionId) return toast('Select a conversation first');
+      const response = await _authFetch('/api/sessions/' + encodeURIComponent(activeSessionId) + '/fork', {method:'POST'});
+      if (!response.ok) return toast('Fork failed');
+      const data = await response.json(); await selectSession(data.session.id); toast('Fork created');
+    }
+
+    function quoteMessage(text) {
+      const input = document.getElementById('inp');
+      input.value = `> ${String(text).replace(/\n/g, '\n> ')}\n\n${input.value}`;
+      input.focus();
+    }
+
+    async function copyMessage(text) {
+      try { await navigator.clipboard.writeText(text); toast('Copied'); }
+      catch { toast('Copy unavailable'); }
+    }
+
+    async function editMessage(messageId, text) {
+      const edited = prompt('Edit prompt', text);
+      if (edited === null || !edited.trim()) return;
+      const response = await _authFetch('/api/messages/' + encodeURIComponent(messageId), {
+        method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content: edited.trim()})
+      });
+      if (!response.ok) return toast('Edit failed');
+      await selectSession(activeSessionId);
+      submitText(edited.trim());
+    }
+
+    async function regenerateMessage(messageId) {
+      const response = await _authFetch('/api/messages/' + encodeURIComponent(messageId) + '/regenerate', {method:'POST'});
+      if (!response.ok) return toast('Regeneration failed');
+      feed.innerHTML = '';
+      await selectSession(activeSessionId);
+      toast('Regenerating response');
+    }
+
+    document.getElementById('history-search').addEventListener('input', loadSessions);
+
+    async function openMemories() {
+      const response = await _authFetch('/api/memories');
+      if (!response.ok) return;
+      const data = await response.json();
+      const list = document.getElementById('memory-list'); list.innerHTML = '';
+      for (const memory of data.memories || []) {
+        const row = document.createElement('div'); row.className = 'memory-row';
+        row.innerHTML = `<span><div class="memory-category">${esc(memory.category)}</div>${esc(memory.fact)}</span>`;
+        const edit = document.createElement('button'); edit.className = 'history-action'; edit.textContent = 'Edit'; edit.onclick = () => editMemory(memory);
+        const remove = document.createElement('button'); remove.className = 'history-action'; remove.textContent = 'Delete'; remove.onclick = () => removeMemory(memory.id);
+        row.append(edit, remove); list.appendChild(row);
+      }
+      document.getElementById('memory-modal').hidden = false;
+    }
+
+    function closeMemories() { document.getElementById('memory-modal').hidden = true; }
+
+    async function addMemory() {
+      const fact = document.getElementById('new-memory').value.trim(); if (!fact) return;
+      await _authFetch('/api/memories', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({fact, category:document.getElementById('new-memory-category').value})});
+      document.getElementById('new-memory').value = ''; openMemories();
+    }
+
+    async function editMemory(memory) {
+      const fact = prompt('Edit memory', memory.fact); if (!fact || !fact.trim()) return;
+      await _authFetch('/api/memories/' + encodeURIComponent(memory.id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({fact:fact.trim(), category:memory.category, confidence:memory.confidence})});
+      openMemories();
+    }
+
+    async function removeMemory(id) {
+      if (!confirm('Delete this memory?')) return;
+      await _authFetch('/api/memories/' + encodeURIComponent(id), {method:'DELETE'}); openMemories();
     }
 
     // ── File helpers ──────────────────────────────────────────────────────────
@@ -394,19 +732,22 @@
     });
 
     // ── Commands ──────────────────────────────────────────────────────────────
+    function submitText(txt) {
+      if (!txt) return;
+      append('user', txt);
+      _authFetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: txt, session_id: activeSessionId })
+      });
+    }
+
     function doSend() {
       const inp = document.getElementById('inp');
       const txt = inp.value.trim();
       if (!txt) return;
       inp.value = '';
-      append('user', txt);
-      const enc  = _encrypt(txt);
-      const body = enc ? { enc } : { text: txt };
-      _authFetch('/api/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+      submitText(txt);
     }
 
     function doWake() {
@@ -426,6 +767,23 @@
       clearTimeout(_toastTimer);
       _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
     }
+
+    async function refreshMetrics() {
+      try {
+        const response = await _authFetch('/api/metrics');
+        if (!response.ok) return;
+        const payload = await response.json();
+        const metrics = payload.metrics || {};
+        const value = (key, suffix = '%') => metrics[key] === undefined || metrics[key] < 0 ? 'N/A' : `${Number(metrics[key]).toFixed(1)}${suffix}`;
+        document.getElementById('metric-cpu').textContent = value('cpu');
+        document.getElementById('metric-mem').textContent = value('mem');
+        document.getElementById('metric-gpu').textContent = value('gpu');
+        document.getElementById('metric-net').textContent = value('net', ' MB/s');
+        document.getElementById('metric-monitors').textContent = String((payload.active_monitors || []).length);
+      } catch (_) {}
+    }
+    refreshMetrics();
+    setInterval(refreshMetrics, 2500);
 
     // ── Real-time Voice — PCM16 WebSocket → Gemini Live ──────────────────────
     const micBtn  = document.getElementById('mic-btn');

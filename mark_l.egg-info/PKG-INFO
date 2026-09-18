@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: mark-l
+Version: 1.1.0
+Summary: A voice-driven personal AI assistant with desktop control, memory, and browser integration
+Author: Personal AI
+License-Expression: CC-BY-NC-4.0
+Keywords: ai,assistant,desktop,voice,automation
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PyQt6
+Requires-Dist: sounddevice
+Requires-Dist: google-genai
+Requires-Dist: google-generativeai
+Requires-Dist: pillow
+Requires-Dist: requests
+Requires-Dist: beautifulsoup4
+Requires-Dist: duckduckgo-search
+Requires-Dist: playwright
+Requires-Dist: pyautogui
+Requires-Dist: pyperclip
+Requires-Dist: pygetwindow
+Requires-Dist: opencv-python
+Requires-Dist: numpy
+Requires-Dist: mss
+Requires-Dist: psutil
+Requires-Dist: send2trash
+Requires-Dist: youtube-transcript-api
+Requires-Dist: python-pptx
+Requires-Dist: qrcode[pil]
+Provides-Extra: dashboard
+Requires-Dist: fastapi; extra == "dashboard"
+Requires-Dist: uvicorn[standard]; extra == "dashboard"
+Requires-Dist: cryptography; extra == "dashboard"
+Requires-Dist: python-multipart; extra == "dashboard"
+Provides-Extra: browser
+Requires-Dist: playwright; extra == "browser"
+Provides-Extra: windows
+Requires-Dist: comtypes; sys_platform == "win32" and extra == "windows"
+Requires-Dist: pycaw; sys_platform == "win32" and extra == "windows"
+Requires-Dist: win10toast; sys_platform == "win32" and extra == "windows"
+Requires-Dist: pywinauto; sys_platform == "win32" and extra == "windows"
+Requires-Dist: pywin32; sys_platform == "win32" and extra == "windows"
+Provides-Extra: build
+Requires-Dist: pyinstaller>=6.0; extra == "build"
+Requires-Dist: build; extra == "build"
+Dynamic: license-file
+
+# Personal AI
+
+Personal AI is a desktop assistant that combines voice interaction, local memory, browser automation, desktop control, file tools, and a web dashboard.
+
+## Features
+
+- Voice-first assistant experience with Gemini-backed conversational AI
+- Local memory and personalization settings stored in the project config directory
+- Browser, desktop, file, system, and app-control actions
+- Optional dashboard for monitoring and management
+- Windows-first packaging with PyInstaller support
+
+## Requirements
+
+- Python 3.11+
+- A Gemini API key configured either via environment variable or `config/api_keys.json`
+
+## Quick start
+
+1. Create and activate a virtual environment.
+2. Install dependencies:
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+3. Configure your API key:
+   - Set `GEMINI_API_KEY`, or
+   - create `config/api_keys.json` using the example file.
+4. Launch the app:
+   ```bash
+   python main.py
+   ```
+
+## Optional extras
+
+```bash
+python -m pip install -e .[dashboard,windows,browser]
+```
+
+## Publishing build
+
+```bash
+python -m pip install build
+python -m build
+```
+
+## License
+
+This project is licensed under CC BY-NC 4.0.

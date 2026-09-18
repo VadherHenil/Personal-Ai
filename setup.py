@@ -1,26 +1,6 @@
-import platform
-import subprocess
-import sys
-from pathlib import Path
+from setuptools import setup
 
-print("Installing project in editable mode...")
-subprocess.run([sys.executable, "-m", "pip", "install", "-e", ".[dashboard,windows,browser]"], check=True)
 
-print("Installing Playwright browsers...")
-subprocess.run([sys.executable, "-m", "playwright", "install"], check=True)
-
-if platform.system() == "Windows":
-    try:
-        import win32com.client  # noqa: F401
-    except ImportError:
-        postinstall = Path(sys.executable).parent / "Scripts" / "pywin32_postinstall.py"
-        print(
-            "\n⚠️  pywin32 did not install correctly — desktop shortcut creation "
-            "will fall back to a slower method that may not work on this machine.\n"
-            "    Try fixing it manually with:\n"
-            f'    "{sys.executable}" -m pip install --force-reinstall pywin32\n'
-            f'    "{sys.executable}" "{postinstall}" -install\n'
-        )
-
-print("\n✅ Setup complete! Run 'python main.py' to start MARK L.")
+if __name__ == "__main__":
+    setup()
 

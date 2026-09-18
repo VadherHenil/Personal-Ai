@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import threading
+from dataclasses import dataclass, asdict
 from pathlib import Path
 
 def get_base_dir() -> Path:
@@ -37,7 +38,119 @@ PERSONALIZATION_DEFAULTS = {
     "learning_mode": False,
     "research_mode": False,
     "developer_mode": False,
+    "ui_theme": "Ultron",
+    "design_mode": "orb",
+    "provider_mode": "auto",
+    "offline_model": "rules",
+    "enabled_plugins": {},
+    "permissions": {},
+    "theme_editor": {
+        "font_family": "Courier New",
+        "animations_enabled": True,
+        "panel_visibility": {"left": True, "center": True, "right": True},
+        "orb_sensitivity": 1.0,
+        "orb_particle_density": 1.0,
+    },
+    "push_to_talk": False,
+    "wake_word_enabled": False,
+    "wake_word": "Friday",
+    "audio_input_device": "default",
+    "audio_output_device": "default",
+    "voice_activity_visualization": True,
+    "skill_profile": "general",
 }
+
+PLUGIN_NAMES = (
+    "open_app", "web_search", "system_status", "weather_report", "send_message",
+    "reminder", "youtube_video", "screen_process", "close_camera", "computer_settings",
+    "browser_control", "file_controller", "desktop_control", "code_helper", "dev_agent",
+    "computer_control", "game_updater", "flight_finder", "manage_monitor", "shutdown_friday",
+    "file_processor",
+    "plan_task", "manage_routine", "memory_control",
+)
+
+DEFAULT_PERMISSIONS = {
+    "microphone": True,
+    "camera": False,
+    "screen": False,
+    "files": False,
+    "browser": False,
+    "system": False,
+    "messaging": False,
+    "power": False,
+}
+
+@dataclass(frozen=True)
+class AppSettings:
+    """Validated application preferences shared by UI, runtime, and dashboard."""
+    ui_theme: str = "Ultron"
+    design_mode: str = "orb"
+    voice_name: str = "Kore"
+    voice_language: str = "en-US"
+    provider_mode: str = "auto"
+    offline_model: str = "rules"
+    enabled_plugins: dict = None
+    permissions: dict = None
+    theme_editor: dict = None
+    push_to_talk: bool = False
+    wake_word_enabled: bool = False
+    wake_word: str = "Friday"
+    audio_input_device: str = "default"
+    audio_output_device: str = "default"
+    voice_activity_visualization: bool = True
+
+    def __post_init__(self):
+        object.__setattr__(self, "enabled_plugins", dict(self.enabled_plugins or {}))
+        object.__setattr__(self, "permissions", dict(self.permissions or {}))
+
+
+def validate_settings(values: dict | None = None) -> dict:
+    """Return a normalized, bounded settings profile without exposing secrets."""
+    raw = dict(PERSONALIZATION_DEFAULTS)
+    raw.update(values or {})
+    raw["ui_theme"] = str(raw.get("ui_theme") or "Ultron")[:80]
+    raw["design_mode"] = str(raw.get("design_mode") or "orb").lower()
+    if raw["design_mode"] not in {"orb", "default", "radar", "reactor", "matrix", "constellation"}:
+        raw["design_mode"] = "orb"
+    raw["provider_mode"] = str(raw.get("provider_mode") or "auto").lower()
+    if raw["provider_mode"] not in {"auto", "online", "offline"}:
+        raw["provider_mode"] = "auto"
+    raw["offline_model"] = str(raw.get("offline_model") or "rules").lower()
+    if raw["offline_model"] not in {"rules"}:
+        raw["offline_model"] = "rules"
+    enabled = raw.get("enabled_plugins") if isinstance(raw.get("enabled_plugins"), dict) else {}
+    raw["enabled_plugins"] = {name: bool(enabled.get(name, True)) for name in PLUGIN_NAMES}
+    permissions = raw.get("permissions") if isinstance(raw.get("permissions"), dict) else {}
+    raw["permissions"] = {name: bool(permissions.get(name, default)) for name, default in DEFAULT_PERMISSIONS.items()}
+    editor = raw.get("theme_editor") if isinstance(raw.get("theme_editor"), dict) else {}
+    try:
+        sensitivity = float(editor.get("orb_sensitivity", 1.0))
+    except (TypeError, ValueError):
+        sensitivity = 1.0
+    try:
+        density = float(editor.get("orb_particle_density", 1.0))
+    except (TypeError, ValueError):
+        density = 1.0
+    raw["theme_editor"] = {
+        "font_family": str(editor.get("font_family") or "Courier New")[:80],
+        "animations_enabled": bool(editor.get("animations_enabled", True)),
+        "panel_visibility": {
+            name: bool((editor.get("panel_visibility") or {}).get(name, True))
+            for name in ("left", "center", "right")
+        },
+        "orb_sensitivity": max(0.2, min(2.0, sensitivity)),
+        "orb_particle_density": max(0.0, min(2.0, density)),
+    }
+    raw["push_to_talk"] = bool(raw.get("push_to_talk", False))
+    raw["wake_word_enabled"] = bool(raw.get("wake_word_enabled", False))
+    raw["wake_word"] = str(raw.get("wake_word") or "Friday")[:40]
+    raw["audio_input_device"] = str(raw.get("audio_input_device") or "default")[:160]
+    raw["audio_output_device"] = str(raw.get("audio_output_device") or "default")[:160]
+    raw["voice_activity_visualization"] = bool(raw.get("voice_activity_visualization", True))
+    raw["skill_profile"] = str(raw.get("skill_profile") or "general").lower()
+    if raw["skill_profile"] not in {"general", "coding", "research", "household", "productivity"}:
+        raw["skill_profile"] = "general"
+    return raw
 
 
 def _load_config_file() -> dict:
@@ -61,6 +174,7 @@ def update_config(values: dict) -> dict:
     with _CONFIG_LOCK:
         data = _load_config_file()
         data.update({key: value for key, value in values.items() if value is not None})
+        data = validate_settings(data)
         fd, temp_name = tempfile.mkstemp(prefix="friday-config-", suffix=".json", dir=str(CONFIG_DIR))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -81,7 +195,41 @@ def load_personalization() -> dict:
     """Return a complete, backwards-compatible personalization profile."""
     profile = dict(PERSONALIZATION_DEFAULTS)
     profile.update(_load_config_file())
-    return profile
+    return validate_settings(profile)
+
+
+def load_settings() -> AppSettings:
+    values = validate_settings(_load_config_file())
+    return AppSettings(
+        ui_theme=values["ui_theme"],
+        design_mode=values["design_mode"],
+        voice_name=str(values.get("voice_name") or "Kore"),
+        voice_language=str(values.get("voice_language") or "en-US"),
+        provider_mode=values["provider_mode"],
+        offline_model=values["offline_model"],
+        enabled_plugins=values["enabled_plugins"],
+        permissions=values["permissions"],
+        theme_editor=values["theme_editor"],
+        push_to_talk=values["push_to_talk"],
+        wake_word_enabled=values["wake_word_enabled"],
+        wake_word=values["wake_word"],
+        audio_input_device=values["audio_input_device"],
+        audio_output_device=values["audio_output_device"],
+        voice_activity_visualization=values["voice_activity_visualization"],
+    )
+
+
+def save_settings(settings: AppSettings | dict) -> dict:
+    values = asdict(settings) if isinstance(settings, AppSettings) else dict(settings)
+    return update_config(validate_settings(values))
+
+
+def plugin_enabled(name: str) -> bool:
+    return bool(load_personalization().get("enabled_plugins", {}).get(name, True))
+
+
+def permission_granted(capability: str) -> bool:
+    return bool(load_personalization().get("permissions", {}).get(capability, False))
 
 
 def _get_env_api_key() -> str | None:
@@ -93,8 +241,8 @@ def _get_env_api_key() -> str | None:
 
 
 def _get_config_api_key() -> str | None:
-    value = _load_config_file().get("gemini_api_key")
-    return value.strip() if isinstance(value, str) and value.strip() else None
+    # Provider credentials must never be persisted in the desktop profile.
+    return None
 
 
 def get_config_value(key: str, default=None, env_var_names: tuple[str, ...] | None = None) -> object:
@@ -119,20 +267,9 @@ def config_exists() -> bool:
     return CONFIG_FILE.exists()
 
 def save_api_keys(gemini_api_key: str) -> None:
-    ensure_config_dir()
-
-    data: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
-
-    data["gemini_api_key"] = gemini_api_key.strip()
-
-    CONFIG_FILE.write_text(
-        json.dumps(data, indent=2),
-        encoding="utf-8"
+    raise RuntimeError(
+        "Provider keys are environment-only. Set GEMINI_API_KEY or GOOGLE_API_KEY "
+        "before starting Personal-Ai."
     )
 
 
@@ -145,15 +282,11 @@ def load_api_keys() -> dict:
 
 
 def get_gemini_key(prefer_env: bool = True) -> str | None:
-    env_key = _get_env_api_key()
-    config_key = _get_config_api_key()
-    if prefer_env:
-        return env_key or config_key
-    return config_key or env_key
+    return _get_env_api_key()
 
 
 def get_gemini_key_sources() -> tuple[str | None, str | None]:
-    return _get_env_api_key(), _get_config_api_key()
+    return _get_env_api_key(), None
 
 
 def get_voice_name() -> str | None:
